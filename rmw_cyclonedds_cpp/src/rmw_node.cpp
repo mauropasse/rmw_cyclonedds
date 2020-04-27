@@ -2625,9 +2625,6 @@ extern "C" rmw_ret_t rmw_wait(
         auto x = static_cast<type *>(var->name ## s[i]); \
         ws->var.push_back(x); \
         dds_waitset_attach(ws->waitseth, x->cond, nelems); \
-        std::cout << "\nAttaching: " #name "\n"; \
-        std::cout << "Address: " << var->name ## s[i] << "\n"; \
-        std::cout << "nelems: " << nelems << "\n"; \
         nelems++; \
       } \
     } \
