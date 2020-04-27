@@ -2625,37 +2625,40 @@ extern "C" rmw_ret_t rmw_wait(
         auto x = static_cast<type *>(var->name ## s[i]); \
         ws->var.push_back(x); \
         dds_waitset_attach(ws->waitseth, x->cond, nelems); \
+        std::cout << "\nAttaching: " #name "\n"; \
+        std::cout << "Address: " << var->name ## s[i] << "\n"; \
+        std::cout << "nelems: " << nelems << "\n"; \
         nelems++; \
       } \
     } \
 } \
   while (0)
     ATTACH(CddsSubscription, subs, subscriber, rdcondh);
-    ATTACH(CddsGuardCondition, gcs, guard_condition, gcondh);
-    ATTACH(CddsService, srvs, service, service.sub->rdcondh);
-    ATTACH(CddsClient, cls, client, client.sub->rdcondh);
+    // ATTACH(CddsGuardCondition, gcs, guard_condition, gcondh);
+    // ATTACH(CddsService, srvs, service, service.sub->rdcondh);
+    // ATTACH(CddsClient, cls, client, client.sub->rdcondh);
 #undef ATTACH
 
     ws->evs.resize(0);
-    if (evs) {
-      std::unordered_set<dds_entity_t> event_entities;
-      rmw_ret_t ret_code = gather_event_entities(evs, event_entities);
-      if (ret_code != RMW_RET_OK) {
-        return ret_code;
-      }
-      for (auto e : event_entities) {
-        dds_waitset_attach(ws->waitseth, e, nelems);
-        nelems++;
-      }
-      ws->evs.reserve(evs->event_count);
-      for (size_t i = 0; i < evs->event_count; i++) {
-        auto current_event = static_cast<rmw_event_t *>(evs->events[i]);
-        CddsEvent ev;
-        ev.enth = static_cast<CddsEntity *>(current_event->data)->enth;
-        ev.event_type = current_event->event_type;
-        ws->evs.push_back(ev);
-      }
-    }
+    // if (evs) {
+    //   std::unordered_set<dds_entity_t> event_entities;
+    //   rmw_ret_t ret_code = gather_event_entities(evs, event_entities);
+    //   if (ret_code != RMW_RET_OK) {
+    //     return ret_code;
+    //   }
+    //   for (auto e : event_entities) {
+    //     dds_waitset_attach(ws->waitseth, e, nelems);
+    //     nelems++;
+    //   }
+    //   ws->evs.reserve(evs->event_count);
+    //   for (size_t i = 0; i < evs->event_count; i++) {
+    //     auto current_event = static_cast<rmw_event_t *>(evs->events[i]);
+    //     CddsEvent ev;
+    //     ev.enth = static_cast<CddsEntity *>(current_event->data)->enth;
+    //     ev.event_type = current_event->event_type;
+    //     ws->evs.push_back(ev);
+    //   }
+    // }
 
     ws->nelems = nelems;
   }
@@ -2685,20 +2688,20 @@ extern "C" rmw_ret_t rmw_wait(
           on_triggered; \
           trig_idx++; \
         } else { \
-          var->name ## s[i] = nullptr; \
+          /*var->name ## s[i] = nullptr;*/ \
         } \
         nelems++; \
       } \
     } \
 } while (0)
     DETACH(CddsSubscription, subs, subscriber, rdcondh, (void) x);
-    DETACH(
-      CddsGuardCondition, gcs, guard_condition, gcondh,
-      dds_take_guardcondition(x->gcondh, &dummy));
-    DETACH(CddsService, srvs, service, service.sub->rdcondh, (void) x);
-    DETACH(CddsClient, cls, client, client.sub->rdcondh, (void) x);
+    // DETACH(
+    //   CddsGuardCondition, gcs, guard_condition, gcondh,
+    //   dds_take_guardcondition(x->gcondh, &dummy));
+    // DETACH(CddsService, srvs, service, service.sub->rdcondh, (void) x);
+    // DETACH(CddsClient, cls, client, client.sub->rdcondh, (void) x);
 #undef DETACH
-    handle_active_events(evs);
+    // handle_active_events(evs);
   }
 
 #if REPORT_BLOCKED_REQUESTS
