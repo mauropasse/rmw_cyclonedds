@@ -2607,13 +2607,13 @@ extern "C" rmw_ret_t rmw_wait(
 
   if (require_reattach(
       ws->subs, subs ? subs->subscriber_count : 0,
-      subs ? subs->subscribers : nullptr) ||
-    require_reattach(
-      ws->gcs, gcs ? gcs->guard_condition_count : 0,
-      gcs ? gcs->guard_conditions : nullptr) ||
-    require_reattach(ws->srvs, srvs ? srvs->service_count : 0, srvs ? srvs->services : nullptr) ||
-    require_reattach(ws->cls, cls ? cls->client_count : 0, cls ? cls->clients : nullptr) ||
-    require_reattach(ws->evs, evs))
+      subs ? subs->subscribers : nullptr))// ||
+    // require_reattach(
+    //   ws->gcs, gcs ? gcs->guard_condition_count : 0,
+    //   gcs ? gcs->guard_conditions : nullptr) ||
+    // require_reattach(ws->srvs, srvs ? srvs->service_count : 0, srvs ? srvs->services : nullptr) ||
+    // require_reattach(ws->cls, cls ? cls->client_count : 0, cls ? cls->clients : nullptr) ||
+    // require_reattach(ws->evs, evs))
   {
     size_t nelems = 0;
     waitset_detach(ws);
