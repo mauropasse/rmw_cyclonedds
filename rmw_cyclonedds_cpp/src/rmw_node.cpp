@@ -428,7 +428,7 @@ extern "C" rmw_ret_t rmw_set_log_severity(rmw_log_severity_t severity)
 
 extern "C" rmw_ret_t rmw_subscription_set_events_executor_callback(
   const void * executor_context,
-  ExecutorEventCallback executor_callback,
+  EventsExecutorCallback executor_callback,
   const void * subscription_handle,
   void * rmw_subscription)
 {
@@ -446,7 +446,7 @@ extern "C" rmw_ret_t rmw_subscription_set_events_executor_callback(
 
 extern "C" rmw_ret_t rmw_service_set_events_executor_callback(
   const void * executor_context,
-  ExecutorEventCallback executor_callback,
+  EventsExecutorCallback executor_callback,
   const void * service_handle,
   void * rmw_service)
 {
@@ -464,7 +464,7 @@ extern "C" rmw_ret_t rmw_service_set_events_executor_callback(
 
 extern "C" rmw_ret_t rmw_client_set_events_executor_callback(
   const void * executor_context,
-  ExecutorEventCallback executor_callback,
+  EventsExecutorCallback executor_callback,
   const void * client_handle,
   void * rmw_client)
 {
@@ -482,7 +482,7 @@ extern "C" rmw_ret_t rmw_client_set_events_executor_callback(
 
 extern "C" rmw_ret_t rmw_guard_condition_set_events_executor_callback(
   const void * executor_context,
-  ExecutorEventCallback executor_callback,
+  EventsExecutorCallback executor_callback,
   const void * guard_condition_handle,
   void * rmw_guard_condition,
   bool use_previous_events)
