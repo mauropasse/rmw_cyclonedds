@@ -42,10 +42,10 @@
 #include "rmw/convert_rcutils_ret_to_rmw_ret.h"
 #include "rmw/error_handling.h"
 #include "rmw/event.h"
-#include "rmw/executor_event_types.h"
 #include "rmw/get_node_info_and_types.h"
 #include "rmw/get_service_names_and_types.h"
 #include "rmw/get_topic_names_and_types.h"
+#include "rmw/listener_event_types.h"
 #include "rmw/names_and_types.h"
 #include "rmw/rmw.h"
 #include "rmw/sanity_checks.h"
@@ -429,7 +429,7 @@ extern "C" rmw_ret_t rmw_set_log_severity(rmw_log_severity_t severity)
 
 extern "C" rmw_ret_t rmw_subscription_set_listener_callback(
   const void * executor_context,
-  EventsExecutorCallback callback,
+  rmw_listener_cb_t callback,
   const void * subscription_handle,
   rmw_subscription_t * rmw_subscription)
 {
@@ -447,7 +447,7 @@ extern "C" rmw_ret_t rmw_subscription_set_listener_callback(
 
 extern "C" rmw_ret_t rmw_service_set_listener_callback(
   const void * executor_context,
-  EventsExecutorCallback callback,
+  rmw_listener_cb_t callback,
   const void * service_handle,
   rmw_service_t * rmw_service)
 {
@@ -465,7 +465,7 @@ extern "C" rmw_ret_t rmw_service_set_listener_callback(
 
 extern "C" rmw_ret_t rmw_client_set_listener_callback(
   const void * executor_context,
-  EventsExecutorCallback callback,
+  rmw_listener_cb_t callback,
   const void * client_handle,
   rmw_client_t * rmw_client)
 {
@@ -483,7 +483,7 @@ extern "C" rmw_ret_t rmw_client_set_listener_callback(
 
 extern "C" rmw_ret_t rmw_guard_condition_set_listener_callback(
   const void * executor_context,
-  EventsExecutorCallback callback,
+  rmw_listener_cb_t callback,
   const void * guard_condition_handle,
   rmw_guard_condition_t * rmw_guard_condition,
   bool use_previous_events)
@@ -502,9 +502,9 @@ extern "C" rmw_ret_t rmw_guard_condition_set_listener_callback(
   return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_ret_t rmw_event_set_events_executor_callback(
+extern "C" rmw_ret_t rmw_event_set_events_listener_callback(
   const void * executor_context,
-  EventsExecutorCallback callback,
+  rmw_listener_cb_t callback,
   const void * waitable_handle,
   rmw_event_t * rmw_event,
   bool use_previous_events)
@@ -519,7 +519,7 @@ extern "C" rmw_ret_t rmw_event_set_events_executor_callback(
   //                              waitable_handle, use_previous_events);
   RCUTILS_LOG_ERROR_NAMED(
     "rmw_node.cpp",
-    "rmw_event_set_events_executor_callback: not supported (yet)");
+    "rmw_event_set_events_listener_callback: not supported (yet)");
   return RMW_RET_UNSUPPORTED;
 }
 
