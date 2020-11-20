@@ -501,7 +501,7 @@ extern "C" rmw_ret_t rmw_guard_condition_set_events_executor_callback(
   return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_ret_t rmw_event_set_listener_callback(
+extern "C" rmw_ret_t rmw_event_set_events_executor_callback(
   const void * executor_context,
   EventsExecutorCallback callback,
   const void * waitable_handle,
@@ -518,7 +518,7 @@ extern "C" rmw_ret_t rmw_event_set_listener_callback(
   //                              waitable_handle, use_previous_events);
   RCUTILS_LOG_ERROR_NAMED(
     "rmw_node.cpp",
-    "rmw_event_set_listener_callback: not supported (yet)");
+    "rmw_event_set_events_executor_callback: not supported (yet)");
   return RMW_RET_UNSUPPORTED;
 }
 
