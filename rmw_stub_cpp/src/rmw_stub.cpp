@@ -103,7 +103,7 @@ extern "C" const char * rmw_get_serialization_format()
 
 extern "C" rmw_ret_t rmw_set_log_severity(rmw_log_severity_t severity)
 {
-  RCUTILS_LOG_ERROR_NAMED("rmw_node.cpp","rmw_set_log_severity not supported");
+  RCUTILS_LOG_ERROR_NAMED("rmw_stub.cpp","rmw_set_log_severity not supported");
   return RMW_RET_UNSUPPORTED;
 }
 
@@ -120,7 +120,7 @@ extern "C" rmw_ret_t rmw_subscription_set_listener_callback(
   // auto subscription = static_cast<CddsSubscription *>(rmw_subscription->data);
   // subscription->setCallback(user_data, callback, subscription_handle);
   RCUTILS_LOG_ERROR_NAMED(
-    "rmw_node.cpp",
+    "rmw_stub.cpp",
     "rmw_subscription_set_listener_callback: not supported (yet)");
   return RMW_RET_UNSUPPORTED;
 }
@@ -138,7 +138,7 @@ extern "C" rmw_ret_t rmw_service_set_listener_callback(
   // auto service = static_cast<CddsService *>(rmw_service->data);
   // service->setCallback(user_data, callback, service_handle);
   RCUTILS_LOG_ERROR_NAMED(
-    "rmw_node.cpp",
+    "rmw_stub.cpp",
     "rmw_service_set_listener_callback: not supported (yet)");
   return RMW_RET_UNSUPPORTED;
 }
@@ -156,7 +156,7 @@ extern "C" rmw_ret_t rmw_client_set_listener_callback(
   // auto client = static_cast<CddsClient *>(rmw_client->data);
   // client->setCallback(user_data, callback, client_handle);
   RCUTILS_LOG_ERROR_NAMED(
-    "rmw_node.cpp",
+    "rmw_stub.cpp",
     "rmw_client_set_listener_callback: not supported (yet)");
   return RMW_RET_UNSUPPORTED;
 }
@@ -177,12 +177,12 @@ extern "C" rmw_ret_t rmw_guard_condition_set_listener_callback(
   // guard_condition->setCallback(user_data, callback,
   //                              guard_condition_handle, use_previous_events);
   RCUTILS_LOG_ERROR_NAMED(
-    "rmw_node.cpp",
+    "rmw_stub.cpp",
     "rmw_guard_condition_set_listener_callback: not supported (yet)");
   return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_ret_t rmw_event_set_events_listener_callback(
+extern "C" rmw_ret_t rmw_event_set_listener_callback(
   const void * user_data,
   rmw_listener_cb_t callback,
   const void * waitable_handle,
@@ -198,8 +198,8 @@ extern "C" rmw_ret_t rmw_event_set_events_listener_callback(
   // event->setCallback(user_data, callback,
   //                              waitable_handle, use_previous_events);
   RCUTILS_LOG_ERROR_NAMED(
-    "rmw_node.cpp",
-    "rmw_event_set_events_listener_callback: not supported (yet)");
+    "rmw_stub.cpp",
+    "rmw_event_set_listener_callback: not supported (yet)");
   return RMW_RET_UNSUPPORTED;
 }
 
@@ -331,29 +331,18 @@ private:
 rmw_ret_t
 rmw_context_impl_t::init(rmw_init_options_t * options, size_t domain_id)
 {
-  // std::lock_guard<std::mutex> guard(initialization_mutex);
-  // if (0u != this->node_count) {
-  //   // initialization has already been done
-  //   this->node_count++;
-  //   return RMW_RET_OK;
-  // }
+  std::lock_guard<std::mutex> guard(initialization_mutex);
+  if (0u != this->node_count) {
+    // initialization has already been done
+    this->node_count++;
+    return RMW_RET_OK;
+  }
 
-  // One could also use a set of listeners instead of a thread for maintaining the graph cache:
-  // - Locally published samples shouldn't make it to the reader, so there shouldn't be a deadlock
-  //   caused by the graph cache's mutex already having been locked by (e.g.) rmw_create_node.
-  // - Whatever the graph cache implementation does, it shouldn't involve much more than local state
-  //   updates and triggering a guard condition, and so that should be safe.
-  // however, the graph cache updates could be expensive, and so performing those operations on
-  // the thread receiving data from the network may not be wise.
-  // rmw_ret_t ret;
-  // if ((ret = discovery_thread_start(this)) != RMW_RET_OK) {
-  //   this->clean_up();
-  //   return ret;
-  // }
-  // ++this->node_count;
-  RCUTILS_LOG_ERROR_NAMED(
-    "rmw_node.cpp","rmw_context_impl_t::init not supported (yet)");
-  return RMW_RET_UNSUPPORTED;
+  // Initialization to do once:
+  // ..nothing yet
+
+  ++this->node_count;
+  return RMW_RET_OK;
 }
 
 void
@@ -815,7 +804,7 @@ extern "C" rmw_ret_t rmw_get_gid_for_publisher(const rmw_publisher_t * publisher
   // assert(sizeof(pub->pubiid) <= sizeof(gid->data));
   // memcpy(gid->data, &pub->pubiid, sizeof(pub->pubiid));
   RCUTILS_LOG_ERROR_NAMED(
-    "rmw_node.cpp",
+    "rmw_stub.cpp",
     "rmw_get_gid_for_publisher not supported (yet)");
   return RMW_RET_UNSUPPORTED;
 }
@@ -863,7 +852,7 @@ extern "C" rmw_ret_t rmw_publisher_count_matched_subscriptions(
 
   // *subscription_count = status.current_count;
   RCUTILS_LOG_ERROR_NAMED(
-    "rmw_node.cpp",
+    "rmw_stub.cpp",
     "rmw_publisher_count_matched_subscriptions not supported (yet)");
   return RMW_RET_UNSUPPORTED;
 }
@@ -877,7 +866,7 @@ rmw_ret_t rmw_publisher_assert_liveliness(const rmw_publisher_t * publisher)
   //   return RMW_RET_ERROR;
   // }
   RCUTILS_LOG_ERROR_NAMED(
-    "rmw_node.cpp",
+    "rmw_stub.cpp",
     "rmw_publisher_assert_liveliness not supported (yet)");
   return RMW_RET_UNSUPPORTED;
 }
@@ -896,7 +885,7 @@ rmw_ret_t rmw_publisher_get_actual_qos(const rmw_publisher_t * publisher, rmw_qo
   //   return RMW_RET_OK;
   // }
   RCUTILS_LOG_ERROR_NAMED(
-    "rmw_node.cpp",
+    "rmw_stub.cpp",
     "rmw_publisher_get_actual_qos not supported (yet)");
   return RMW_RET_ERROR;
 }
@@ -911,7 +900,7 @@ extern "C" rmw_ret_t rmw_borrow_loaned_message(
   (void) ros_message;
   RMW_SET_ERROR_MSG("rmw_borrow_loaned_message not implemented for rmw_stub_cpp");
   RCUTILS_LOG_ERROR_NAMED(
-    "rmw_node.cpp",
+    "rmw_stub.cpp",
     "rmw_borrow_loaned_message not supported (yet)");
   return RMW_RET_UNSUPPORTED;
 }
@@ -941,7 +930,7 @@ static rmw_ret_t destroy_publisher(rmw_publisher_t * publisher)
   rmw_free(const_cast<char *>(publisher->topic_name));
   rmw_publisher_free(publisher);
   RCUTILS_LOG_ERROR_NAMED(
-    "rmw_node.cpp",
+    "rmw_stub.cpp",
     "destroy_publisher not supported (yet)");
   return ret;
 }
@@ -1115,7 +1104,7 @@ extern "C" rmw_ret_t rmw_subscription_count_matched_publishers(
   // }
   // *publisher_count = status.current_count;
   RCUTILS_LOG_ERROR_NAMED(
-    "rmw_node.cpp",
+    "rmw_stub.cpp",
     "not supported (yet)");
   return RMW_RET_UNSUPPORTED;
 }
@@ -1488,7 +1477,7 @@ extern "C" rmw_ret_t rmw_trigger_guard_condition(
   // dds_set_guardcondition(gcond_impl->gcondh, true);
   // return RMW_RET_OK;
   RCUTILS_LOG_ERROR_NAMED(
-    "rmw_node.cpp",
+    "rmw_stub.cpp",
     "rmw_trigger_guard_condition");
   return RMW_RET_UNSUPPORTED;
 }
@@ -1581,7 +1570,7 @@ extern "C" rmw_ret_t rmw_wait(
   rmw_wait_set_t * wait_set, const rmw_time_t * wait_timeout)
 {
   RCUTILS_LOG_ERROR_NAMED(
-    "rmw_node.cpp",
+    "rmw_stub.cpp",
     "rmw_wait");
 }
 
@@ -1608,7 +1597,7 @@ extern "C" rmw_ret_t rmw_take_response(
   //   &source_timestamp, info->client.pub->pubiid);
 
   RCUTILS_LOG_ERROR_NAMED(
-    "rmw_node.cpp",
+    "rmw_stub.cpp",
     "rmw_take_response");
   return RMW_RET_UNSUPPORTED;
 }
@@ -1626,7 +1615,7 @@ extern "C" rmw_ret_t rmw_take_request(
     return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
   RCUTILS_LOG_ERROR_NAMED(
-    "rmw_node.cpp",
+    "rmw_stub.cpp",
     "rmw_take_request");
   return RMW_RET_UNSUPPORTED;
   // auto info = static_cast<CddsService *>(service->data);
@@ -1696,7 +1685,7 @@ extern "C" rmw_ret_t rmw_send_response(
   // return RMW_RET_ERROR;
 
   RCUTILS_LOG_ERROR_NAMED(
-    "rmw_node.cpp",
+    "rmw_stub.cpp",
     "rmw_send_response");
   return RMW_RET_UNSUPPORTED;
 }
@@ -1728,7 +1717,7 @@ extern "C" rmw_ret_t rmw_send_request(
 
 //   return rmw_send_response_request(&info->client, header, ros_request);
   RCUTILS_LOG_ERROR_NAMED(
-    "rmw_node.cpp",
+    "rmw_stub.cpp",
     "rmw_send_request");
   return RMW_RET_UNSUPPORTED;
 }
@@ -1792,7 +1781,7 @@ extern "C" rmw_ret_t rmw_destroy_client(rmw_node_t * node, rmw_client_t * client
 {
   // return destroy_client(node, client);
   RCUTILS_LOG_ERROR_NAMED(
-    "rmw_node.cpp",
+    "rmw_stub.cpp",
     "rmw_destroy_client");
   return RMW_RET_UNSUPPORTED;
 }
@@ -1888,7 +1877,7 @@ extern "C" rmw_ret_t rmw_get_node_names(
   //   nullptr,
   //   &allocator);
   RCUTILS_LOG_ERROR_NAMED(
-    "rmw_node.cpp",
+    "rmw_stub.cpp",
     "rmw_get_node_names");
   return RMW_RET_UNSUPPORTED;
 }
@@ -1924,7 +1913,7 @@ extern "C" rmw_ret_t rmw_get_node_names_with_enclaves(
   //   &allocator);
 
   RCUTILS_LOG_ERROR_NAMED(
-    "rmw_node.cpp",
+    "rmw_stub.cpp",
     "rmw_get_node_names_with_enclaves");
   return RMW_RET_UNSUPPORTED;
 }
@@ -2025,7 +2014,7 @@ extern "C" rmw_ret_t rmw_service_server_is_available(
   // return check_for_service_reader_writer(info->client, is_available);
   // return RMW_RET_ERROR;
   RCUTILS_LOG_ERROR_NAMED(
-    "rmw_node.cpp",
+    "rmw_stub.cpp",
     "rmw_service_server_is_available");
   return RMW_RET_UNSUPPORTED;
 }
@@ -2057,7 +2046,7 @@ extern "C" rmw_ret_t rmw_count_publishers(
   // const std::string mangled_topic_name = make_fqtopic(ROS_TOPIC_PREFIX, topic_name, "", false);
   // return common_context->graph_cache.get_writer_count(mangled_topic_name, count);
       RCUTILS_LOG_ERROR_NAMED(
-    "rmw_node.cpp",
+    "rmw_stub.cpp",
     "rmw_count_publishers");
   return RMW_RET_UNSUPPORTED;
 }
@@ -2089,7 +2078,7 @@ extern "C" rmw_ret_t rmw_count_subscribers(
   // const std::string mangled_topic_name = make_fqtopic(ROS_TOPIC_PREFIX, topic_name, "", false);
   // return common_context->graph_cache.get_reader_count(mangled_topic_name, count);
       RCUTILS_LOG_ERROR_NAMED(
-    "rmw_node.cpp",
+    "rmw_stub.cpp",
     "rmw_count_subscribers");
     return RMW_RET_UNSUPPORTED;
 }
@@ -2109,7 +2098,7 @@ extern "C" rmw_ret_t rmw_get_subscriber_names_and_types_by_node(
   //   _demangle_ros_topic_from_topic, _demangle_if_ros_type,
   //   no_demangle, get_reader_names_and_types_by_node, tptyp);
     RCUTILS_LOG_ERROR_NAMED(
-    "rmw_node.cpp",
+    "rmw_stub.cpp",
     "rmw_get_subscriber_names_and_types_by_node");
   return RMW_RET_UNSUPPORTED;
 }
@@ -2128,7 +2117,7 @@ extern "C" rmw_ret_t rmw_get_publisher_names_and_types_by_node(
   //   no_demangle, get_writer_names_and_types_by_node, tptyp);
 
   RCUTILS_LOG_ERROR_NAMED(
-    "rmw_node.cpp",
+    "rmw_stub.cpp",
     "rmw_get_publisher_names_and_types_by_node");
   return RMW_RET_UNSUPPORTED;
 
@@ -2152,7 +2141,7 @@ extern "C" rmw_ret_t rmw_get_service_names_and_types_by_node(
   //   get_reader_names_and_types_by_node,
   //   sntyp);
   RCUTILS_LOG_ERROR_NAMED(
-    "rmw_node.cpp",
+    "rmw_stub.cpp",
     "rmw_get_service_names_and_types_by_node");
   return RMW_RET_UNSUPPORTED;
 }
@@ -2175,7 +2164,7 @@ extern "C" rmw_ret_t rmw_get_client_names_and_types_by_node(
   //   get_reader_names_and_types_by_node,
   //   sntyp);
         RCUTILS_LOG_ERROR_NAMED(
-    "rmw_node.cpp",
+    "rmw_stub.cpp",
     "rmw_get_client_names_and_types_by_node");
     return RMW_RET_UNSUPPORTED;
 }
@@ -2213,7 +2202,7 @@ extern "C" rmw_ret_t rmw_get_publishers_info_by_topic(
   //   allocator,
   //   publishers_info);
       RCUTILS_LOG_ERROR_NAMED(
-    "rmw_node.cpp",
+    "rmw_stub.cpp",
     "rmw_get_publishers_info_by_topic");
   return RMW_RET_UNSUPPORTED;
 }
@@ -2251,7 +2240,7 @@ extern "C" rmw_ret_t rmw_get_subscriptions_info_by_topic(
   //   allocator,
   //   subscriptions_info);
     RCUTILS_LOG_ERROR_NAMED(
-    "rmw_node.cpp",
+    "rmw_stub.cpp",
     "rmw_get_subscriptions_info_by_topic");
   return RMW_RET_UNSUPPORTED;
 }

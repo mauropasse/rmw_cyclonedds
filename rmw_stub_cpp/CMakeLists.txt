@@ -45,14 +45,14 @@ ament_export_dependencies(rosidl_typesupport_introspection_c)
 ament_export_dependencies(rosidl_typesupport_introspection_cpp)
 
 add_library(rmw_stub_cpp
-  src/rmw_node.cpp
-  src/serdata.cpp
-  src/serdes.cpp
+  src/rmw_stub.cpp
+  # src/serdata.cpp
+  # src/serdes.cpp
   src/u16string.cpp
   src/exception.cpp
   src/demangle.cpp
-  src/deserialization_exception.cpp
-  src/Serialization.cpp
+  # src/deserialization_exception.cpp
+  # src/Serialization.cpp
   src/TypeSupport2.cpp)
 
 ament_target_dependencies(rmw_stub_cpp
