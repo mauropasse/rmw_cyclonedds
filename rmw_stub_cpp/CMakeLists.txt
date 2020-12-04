@@ -30,14 +30,6 @@ find_package(ament_cmake_ros REQUIRED)
 find_package(rcutils REQUIRED)
 find_package(rcpputils REQUIRED)
 
-#find_package(stub_cmake_module REQUIRED)
-find_package(CycloneDDS QUIET CONFIG)
-if(NOT CycloneDDS_FOUND)
-  message(WARNING "Could not find Eclipse Cyclone DDS - skipping '${PROJECT_NAME}'")
-  ament_package()
-  return()
-endif()
-
 find_package(rmw REQUIRED)
 find_package(rmw_dds_common REQUIRED)
 find_package(rosidl_runtime_c REQUIRED)
@@ -62,10 +54,6 @@ add_library(rmw_stub_cpp
   src/deserialization_exception.cpp
   src/Serialization.cpp
   src/TypeSupport2.cpp)
-
-target_link_libraries(rmw_stub_cpp
-  CycloneDDS::ddsc
-)
 
 ament_target_dependencies(rmw_stub_cpp
   "rcutils"
@@ -105,7 +93,3 @@ install(
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
-
-include(cmake/get_rmw_stub_output_filter.cmake)
-get_rmw_stub_output_filter(rmw_stub_output_patterns)
-ament_index_register_resource("rmw_output_patterns" CONTENT "${rmw_stub_output_patterns}")
