@@ -23,7 +23,7 @@
 #include "ServiceTypeSupport.hpp"
 #include "rosidl_typesupport_introspection_cpp/field_types.hpp"
 
-namespace rmw_cyclonedds_cpp
+namespace rmw_stub_cpp
 {
 
 template<typename MembersType>
@@ -70,6 +70,6 @@ ResponseTypeSupport<ServiceMembersType, MessageMembersType>::ResponseTypeSupport
   this->setName(ss.str().c_str());
 }
 
-}  // namespace rmw_cyclonedds_cpp
+}  // namespace rmw_stub_cpp
 
 #endif  // SERVICETYPESUPPORT_IMPL_HPP_

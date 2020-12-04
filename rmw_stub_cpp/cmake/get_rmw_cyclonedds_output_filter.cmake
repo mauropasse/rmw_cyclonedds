@@ -21,9 +21,9 @@
 #
 # @public
 #
-macro(get_rmw_cyclonedds_output_filter output_patterns)
+macro(get_rmw_stub_output_filter output_patterns)
   if(NOT "${ARGN}" STREQUAL "")
-    message(FATAL_ERROR "get_rmw_cyclonedds_output_filter() called with "
+    message(FATAL_ERROR "get_rmw_stub_output_filter() called with "
       "unused arguments: ${ARGN}")
   endif()
 

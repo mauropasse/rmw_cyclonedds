@@ -22,7 +22,7 @@
 #include "dds/ddsi/ddsi_serdata.h"
 #include "dds/ddsi/ddsi_sertopic.h"
 
-namespace rmw_cyclonedds_cpp
+namespace rmw_stub_cpp
 {
 class BaseCDRWriter;
 }
@@ -42,7 +42,7 @@ struct sertopic_rmw : ddsi_sertopic
   std::string cpp_type_name;
   std::string cpp_name_type_name;
 #endif
-  std::unique_ptr<const rmw_cyclonedds_cpp::BaseCDRWriter> cdr_writer;
+  std::unique_ptr<const rmw_stub_cpp::BaseCDRWriter> cdr_writer;
 };
 
 class serdata_rmw : public ddsi_serdata
@@ -85,7 +85,7 @@ void * create_response_type_support(
 struct sertopic_rmw * create_sertopic(
   const char * topicname, const char * type_support_identifier,
   void * type_support, bool is_request_header,
-  std::unique_ptr<rmw_cyclonedds_cpp::StructValueType> message_type_support);
+  std::unique_ptr<rmw_stub_cpp::StructValueType> message_type_support);
 
 struct ddsi_serdata * serdata_rmw_from_serialized_message(
   const struct ddsi_sertopic * topiccmn,

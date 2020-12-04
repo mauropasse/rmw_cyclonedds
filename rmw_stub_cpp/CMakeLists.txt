@@ -14,7 +14,7 @@
 
 cmake_minimum_required(VERSION 3.5)
 
-project(rmw_cyclonedds_cpp)
+project(rmw_stub_cpp)
 
 # Default to C++14
 if(NOT CMAKE_CXX_STANDARD)
@@ -30,7 +30,7 @@ find_package(ament_cmake_ros REQUIRED)
 find_package(rcutils REQUIRED)
 find_package(rcpputils REQUIRED)
 
-#find_package(cyclonedds_cmake_module REQUIRED)
+#find_package(stub_cmake_module REQUIRED)
 find_package(CycloneDDS QUIET CONFIG)
 if(NOT CycloneDDS_FOUND)
   message(WARNING "Could not find Eclipse Cyclone DDS - skipping '${PROJECT_NAME}'")
@@ -52,7 +52,7 @@ ament_export_dependencies(rmw_dds_common)
 ament_export_dependencies(rosidl_typesupport_introspection_c)
 ament_export_dependencies(rosidl_typesupport_introspection_cpp)
 
-add_library(rmw_cyclonedds_cpp
+add_library(rmw_stub_cpp
   src/rmw_node.cpp
   src/serdata.cpp
   src/serdes.cpp
@@ -63,11 +63,11 @@ add_library(rmw_cyclonedds_cpp
   src/Serialization.cpp
   src/TypeSupport2.cpp)
 
-target_link_libraries(rmw_cyclonedds_cpp
+target_link_libraries(rmw_stub_cpp
   CycloneDDS::ddsc
 )
 
-ament_target_dependencies(rmw_cyclonedds_cpp
+ament_target_dependencies(rmw_stub_cpp
   "rcutils"
   "rcpputils"
   "rosidl_typesupport_introspection_c"
@@ -77,7 +77,7 @@ ament_target_dependencies(rmw_cyclonedds_cpp
   "rosidl_runtime_c"
 )
 
-configure_rmw_library(rmw_cyclonedds_cpp)
+configure_rmw_library(rmw_stub_cpp)
 
 target_compile_definitions(${PROJECT_NAME}
   PRIVATE
@@ -86,7 +86,7 @@ target_compile_definitions(${PROJECT_NAME}
     RMW_VERSION_PATCH=${rmw_VERSION_PATCH}
 )
 
-ament_export_libraries(rmw_cyclonedds_cpp)
+ament_export_libraries(rmw_stub_cpp)
 
 register_rmw_implementation(
   "c:rosidl_typesupport_c:rosidl_typesupport_introspection_c"
@@ -100,12 +100,12 @@ endif()
 ament_package()
 
 install(
-  TARGETS rmw_cyclonedds_cpp
+  TARGETS rmw_stub_cpp
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
 
-include(cmake/get_rmw_cyclonedds_output_filter.cmake)
-get_rmw_cyclonedds_output_filter(rmw_cyclonedds_output_patterns)
-ament_index_register_resource("rmw_output_patterns" CONTENT "${rmw_cyclonedds_output_patterns}")
+include(cmake/get_rmw_stub_output_filter.cmake)
+get_rmw_stub_output_filter(rmw_stub_output_patterns)
+ament_index_register_resource("rmw_output_patterns" CONTENT "${rmw_stub_output_patterns}")

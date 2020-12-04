@@ -17,7 +17,7 @@
 
 #include "exception.hpp"
 
-namespace rmw_cyclonedds_cpp
+namespace rmw_stub_cpp
 {
 
 class DeserializationException : public Exception
@@ -32,6 +32,6 @@ public:
   static const char * const DEFAULT_MESSAGE;
 };
 
-}  // namespace rmw_cyclonedds_cpp
+}  // namespace rmw_stub_cpp
 
 #endif  // DESERIALIZATION_EXCEPTION_HPP_

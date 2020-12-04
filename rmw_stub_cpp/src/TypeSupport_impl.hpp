@@ -36,7 +36,7 @@
 #include "serdes.hpp"
 #include "u16string.hpp"
 
-namespace rmw_cyclonedds_cpp
+namespace rmw_stub_cpp
 {
 
 template<typename T>
@@ -475,6 +475,6 @@ std::string TypeSupport<MembersType>::getName()
   return name;
 }
 
-}  // namespace rmw_cyclonedds_cpp
+}  // namespace rmw_stub_cpp
 
 #endif  // TYPESUPPORT_IMPL_HPP_

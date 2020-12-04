@@ -34,7 +34,7 @@
 #include "rosidl_typesupport_introspection_cpp/message_introspection.hpp"
 #include "rosidl_typesupport_introspection_cpp/service_introspection.hpp"
 
-namespace rmw_cyclonedds_cpp
+namespace rmw_stub_cpp
 {
 struct AnyValueType;
 
@@ -516,5 +516,5 @@ auto AnyValueType::apply(UnaryFunction f)
   }
 }
 
-}  // namespace rmw_cyclonedds_cpp
+}  // namespace rmw_stub_cpp
 #endif  // TYPESUPPORT2_HPP_

@@ -38,7 +38,7 @@
 
 #include "serdes.hpp"
 
-namespace rmw_cyclonedds_cpp
+namespace rmw_stub_cpp
 {
 
 // Helper class that uses template specialization to read/write string types to/from a
@@ -58,13 +58,13 @@ struct StringHelper<rosidl_typesupport_introspection_c__MessageMembers>
     auto c_string = static_cast<rosidl_runtime_c__String *>(data);
     if (!c_string) {
       RCUTILS_LOG_ERROR_NAMED(
-        "rmw_cyclonedds_cpp",
+        "rmw_stub_cpp",
         "Failed to cast data as rosidl_runtime_c__String");
       return "";
     }
     if (!c_string->data) {
       RCUTILS_LOG_ERROR_NAMED(
-        "rmw_cyclonedds_cpp",
+        "rmw_stub_cpp",
         "rosidl_generator_c_String had invalid data");
       return "";
     }
@@ -131,7 +131,7 @@ private:
     cycprint & deser, const MembersType * members);
 };
 
-}  // namespace rmw_cyclonedds_cpp
+}  // namespace rmw_stub_cpp
 
 #include "TypeSupport_impl.hpp"
 

@@ -27,7 +27,7 @@
 
 #include "deserialization_exception.hpp"
 
-using rmw_cyclonedds_cpp::DeserializationException;
+using rmw_stub_cpp::DeserializationException;
 
 class cycdeserbase
 {

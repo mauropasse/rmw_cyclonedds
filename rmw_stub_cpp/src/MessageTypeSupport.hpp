@@ -12,31 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "exception.hpp"
+#ifndef MESSAGETYPESUPPORT_HPP_
+#define MESSAGETYPESUPPORT_HPP_
 
-using rmw_cyclonedds_cpp::Exception;
+#include <cassert>
+#include <memory>
 
-Exception::Exception(const char * const & message)
-: m_message(message)
+#include "TypeSupport.hpp"
+#include "rosidl_typesupport_introspection_cpp/message_introspection.hpp"
+#include "rosidl_typesupport_introspection_cpp/field_types.hpp"
+
+namespace rmw_stub_cpp
 {
-}
 
-Exception::Exception(const Exception & ex)
-: m_message(ex.m_message)
+template<typename MembersType>
+class MessageTypeSupport : public TypeSupport<MembersType>
 {
-}
+public:
+  explicit MessageTypeSupport(const MembersType * members);
+};
 
-Exception & Exception::operator=(const Exception & ex)
-{
-  m_message = ex.m_message;
-  return *this;
-}
+}  // namespace rmw_stub_cpp
 
-Exception::~Exception() throw()
-{
-}
+#include "MessageTypeSupport_impl.hpp"
 
-const char * Exception::what() const throw()
-{
-  return m_message.c_str();
-}
+#endif  // MESSAGETYPESUPPORT_HPP_

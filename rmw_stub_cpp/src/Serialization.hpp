@@ -20,7 +20,7 @@
 #include "rosidl_runtime_c/service_type_support_struct.h"
 #include "serdata.hpp"
 
-namespace rmw_cyclonedds_cpp
+namespace rmw_stub_cpp
 {
 
 class BaseCDRWriter
@@ -34,6 +34,6 @@ public:
 };
 
 std::unique_ptr<BaseCDRWriter> make_cdr_writer(std::unique_ptr<StructValueType> value_type);
-}  // namespace rmw_cyclonedds_cpp
+}  // namespace rmw_stub_cpp
 
 #endif  // SERIALIZATION_HPP_

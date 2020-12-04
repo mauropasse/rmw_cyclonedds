@@ -43,23 +43,23 @@
 #endif
 
 using TypeSupport_c =
-  rmw_cyclonedds_cpp::TypeSupport<rosidl_typesupport_introspection_c__MessageMembers>;
+  rmw_stub_cpp::TypeSupport<rosidl_typesupport_introspection_c__MessageMembers>;
 using TypeSupport_cpp =
-  rmw_cyclonedds_cpp::TypeSupport<rosidl_typesupport_introspection_cpp::MessageMembers>;
+  rmw_stub_cpp::TypeSupport<rosidl_typesupport_introspection_cpp::MessageMembers>;
 using MessageTypeSupport_c =
-  rmw_cyclonedds_cpp::MessageTypeSupport<rosidl_typesupport_introspection_c__MessageMembers>;
+  rmw_stub_cpp::MessageTypeSupport<rosidl_typesupport_introspection_c__MessageMembers>;
 using MessageTypeSupport_cpp =
-  rmw_cyclonedds_cpp::MessageTypeSupport<rosidl_typesupport_introspection_cpp::MessageMembers>;
-using RequestTypeSupport_c = rmw_cyclonedds_cpp::RequestTypeSupport<
+  rmw_stub_cpp::MessageTypeSupport<rosidl_typesupport_introspection_cpp::MessageMembers>;
+using RequestTypeSupport_c = rmw_stub_cpp::RequestTypeSupport<
   rosidl_typesupport_introspection_c__ServiceMembers,
   rosidl_typesupport_introspection_c__MessageMembers>;
-using RequestTypeSupport_cpp = rmw_cyclonedds_cpp::RequestTypeSupport<
+using RequestTypeSupport_cpp = rmw_stub_cpp::RequestTypeSupport<
   rosidl_typesupport_introspection_cpp::ServiceMembers,
   rosidl_typesupport_introspection_cpp::MessageMembers>;
-using ResponseTypeSupport_c = rmw_cyclonedds_cpp::ResponseTypeSupport<
+using ResponseTypeSupport_c = rmw_stub_cpp::ResponseTypeSupport<
   rosidl_typesupport_introspection_c__ServiceMembers,
   rosidl_typesupport_introspection_c__MessageMembers>;
-using ResponseTypeSupport_cpp = rmw_cyclonedds_cpp::ResponseTypeSupport<
+using ResponseTypeSupport_cpp = rmw_stub_cpp::ResponseTypeSupport<
   rosidl_typesupport_introspection_cpp::ServiceMembers,
   rosidl_typesupport_introspection_cpp::MessageMembers>;
 
@@ -307,7 +307,7 @@ static bool serdata_rmw_to_sample(
         return typed_typesupport->deserializeROSmessage(sd, wrap->data, prefix);
       }
     }
-  } catch (rmw_cyclonedds_cpp::Exception & e) {
+  } catch (rmw_stub_cpp::Exception & e) {
     RMW_SET_ERROR_MSG(e.what());
     return false;
   } catch (std::runtime_error & e) {
@@ -380,7 +380,7 @@ static size_t serdata_rmw_print(
         return typed_typesupport->printROSmessage(sd, prefix);
       }
     }
-  } catch (rmw_cyclonedds_cpp::Exception & e) {
+  } catch (rmw_stub_cpp::Exception & e) {
     RMW_SET_ERROR_MSG(e.what());
     return false;
   } catch (std::runtime_error & e) {
@@ -562,7 +562,7 @@ static std::string get_type_name(const char * type_support_identifier, void * ty
 struct sertopic_rmw * create_sertopic(
   const char * topicname, const char * type_support_identifier,
   void * type_support, bool is_request_header,
-  std::unique_ptr<rmw_cyclonedds_cpp::StructValueType> message_type)
+  std::unique_ptr<rmw_stub_cpp::StructValueType> message_type)
 {
   struct sertopic_rmw * st = new struct sertopic_rmw;
 #if DDSI_SERTOPIC_HAS_TOPICKIND_NO_KEY
@@ -587,7 +587,7 @@ struct sertopic_rmw * create_sertopic(
   st->type_support.typesupport_identifier_ = type_support_identifier;
   st->type_support.type_support_ = type_support;
   st->is_request_header = is_request_header;
-  st->cdr_writer = rmw_cyclonedds_cpp::make_cdr_writer(std::move(message_type));
+  st->cdr_writer = rmw_stub_cpp::make_cdr_writer(std::move(message_type));
   return st;
 }
 

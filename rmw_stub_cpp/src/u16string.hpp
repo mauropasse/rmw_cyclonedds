@@ -18,7 +18,7 @@
 #include <string>
 #include "rosidl_runtime_c/u16string_functions.h"
 
-namespace rmw_cyclonedds_cpp
+namespace rmw_stub_cpp
 {
 
 void u16string_to_wstring(
@@ -31,6 +31,6 @@ void u16string_to_wstring(const std::u16string & u16str, std::wstring & wstr);
 
 bool wstring_to_u16string(const std::wstring & wstr, std::u16string & u16str);
 
-}  // namespace rmw_cyclonedds_cpp
+}  // namespace rmw_stub_cpp
 
 #endif  // U16STRING_HPP_

@@ -18,7 +18,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace rmw_cyclonedds_cpp
+namespace rmw_stub_cpp
 {
 
 class Exception : public std::exception
@@ -49,6 +49,6 @@ protected:
 #endif
   throw std::logic_error("This code should be unreachable.");
 }
-}  // namespace rmw_cyclonedds_cpp
+}  // namespace rmw_stub_cpp
 
 #endif  // EXCEPTION_HPP_

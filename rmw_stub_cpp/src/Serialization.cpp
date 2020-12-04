@@ -30,7 +30,7 @@
 #include "TypeSupport2.hpp"
 #include "bytewise.hpp"
 
-namespace rmw_cyclonedds_cpp
+namespace rmw_stub_cpp
 {
 
 struct CDRCursor
@@ -614,4 +614,4 @@ std::unique_ptr<BaseCDRWriter> make_cdr_writer(std::unique_ptr<StructValueType> 
   return std::make_unique<CDRWriter>(std::move(value_type));
 }
 
-}  // namespace rmw_cyclonedds_cpp
+}  // namespace rmw_stub_cpp

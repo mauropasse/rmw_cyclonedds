@@ -14,7 +14,7 @@
 
 #include "deserialization_exception.hpp"
 
-using rmw_cyclonedds_cpp::DeserializationException;
+using rmw_stub_cpp::DeserializationException;
 
 DeserializationException::DeserializationException(const char * const & message)
 : Exception(message)

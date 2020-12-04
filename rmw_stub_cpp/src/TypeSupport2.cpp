@@ -18,7 +18,7 @@
 #include <utility>
 #include <vector>
 
-namespace rmw_cyclonedds_cpp
+namespace rmw_stub_cpp
 {
 class ROSIDLC_StructValueType : public StructValueType
 {
@@ -202,4 +202,4 @@ ROSIDLCPP_StructValueType::ROSIDLCPP_StructValueType(
       });
   }
 }
-}  // namespace rmw_cyclonedds_cpp
+}  // namespace rmw_stub_cpp
