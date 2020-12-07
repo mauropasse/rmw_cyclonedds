@@ -66,8 +66,10 @@
 
 #include "rosidl_typesupport_cpp/message_type_support.hpp"
 
-#include "rmw_stub_cpp/stub_guard_condition.hpp"
 #include "rmw_stub_cpp/stub_context_implementation.hpp"
+#include "rmw_stub_cpp/stub_guard_condition.hpp"
+#include "rmw_stub_cpp/stub_publisher.hpp"
+#include "rmw_stub_cpp/stub_node.hpp"
 
 using namespace std::literals::chrono_literals;
 
@@ -439,102 +441,53 @@ extern "C" rmw_node_t * rmw_create_node(
   if (RMW_RET_OK != ret) {
     return nullptr;
   }
+
   auto finalize_context = rcpputils::make_scope_exit(
     [context]() {context->impl->fini();});
 
-  // std::unique_ptr<CddsNode> node_impl(new (std::nothrow) CddsNode());
-  // RET_ALLOC_X(node_impl, return nullptr);
+  auto * stub_node = new StubNode();
 
   rmw_node_t * node = rmw_node_allocate();
 
-
-  //RET_ALLOC_X(node, return nullptr);
-  auto cleanup_node = rcpputils::make_scope_exit(
-    [node]() {
-      rmw_free(const_cast<char *>(node->name));
-      rmw_free(const_cast<char *>(node->namespace_));
-      rmw_node_free(node);
-    });
-
   node->name = static_cast<const char *>(rmw_allocate(sizeof(char) * strlen(name) + 1));
-  //RET_ALLOC_X(node->name, return nullptr);
   memcpy(const_cast<char *>(node->name), name, strlen(name) + 1);
 
-  node->namespace_ =
-    static_cast<const char *>(rmw_allocate(sizeof(char) * strlen(namespace_) + 1));
-  //RET_ALLOC_X(node->namespace_, return nullptr);
+  node->namespace_ = static_cast<const char *>(rmw_allocate(sizeof(char) * strlen(namespace_) + 1));
   memcpy(const_cast<char *>(node->namespace_), namespace_, strlen(namespace_) + 1);
 
-  {
-    // Though graph_cache methods are thread safe, both cache update and publishing have to also
-    // be atomic.
-    // If not, the following race condition is possible:
-    // node1-update-get-message / node2-update-get-message / node2-publish / node1-publish
-    // In that case, the last message published is not accurate.
-    // auto common = &context->impl->common;
-    //std::lock_guard<std::mutex> guard(common->node_update_mutex);
-    // rmw_dds_common::msg::ParticipantEntitiesInfo participant_msg =
-    //   common->graph_cache.add_node(common->gid, name, namespace_);
-    // if (RMW_RET_OK != rmw_publish(
-    //     common->pub,
-    //     static_cast<void *>(&participant_msg),
-    //     nullptr))
-    // {
-    //   // If publishing the message failed, we don't have to publish an update
-    //   // after removing it from the graph cache */
-    //   static_cast<void>(common->graph_cache.remove_node(common->gid, name, namespace_));
-    //   return nullptr;
-    // }
-  }
-
-  cleanup_node.cancel();
   node->implementation_identifier = stub_identifier;
-  // node->data = node_impl.release();
+  node->data = stub_node;
   node->context = context;
-  finalize_context.cancel();
   return node;
 }
 
 extern "C" rmw_ret_t rmw_destroy_node(rmw_node_t * node)
 {
-  rmw_ret_t result_ret = RMW_RET_OK;
   RMW_CHECK_ARGUMENT_FOR_NULL(node, RMW_RET_INVALID_ARGUMENT);
   RMW_CHECK_TYPE_IDENTIFIERS_MATCH(
     node,
     node->implementation_identifier,
     stub_identifier,
     return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-  // auto node_impl = static_cast<CddsNode *>(node->data);
 
-  {
-    // Though graph_cache methods are thread safe, both cache update and publishing have to also
-    // be atomic.
-    // If not, the following race condition is possible:
-    // node1-update-get-message / node2-update-get-message / node2-publish / node1-publish
-    // In that case, the last message published is not accurate.
-    // auto common = &node->context->impl->common;
-    // std::lock_guard<std::mutex> guard(common->node_update_mutex);
-    // rmw_dds_common::msg::ParticipantEntitiesInfo participant_msg =
-    //   common->graph_cache.remove_node(common->gid, node->name, node->namespace_);
-    // result_ret = rmw_publish(
-    //   common->pub, static_cast<void *>(&participant_msg), nullptr);
-  }
+  auto stub_node = static_cast<StubNode *>(node->data);
 
   rmw_context_t * context = node->context;
   rcutils_allocator_t allocator = context->options.allocator;
   allocator.deallocate(const_cast<char *>(node->name), allocator.state);
   allocator.deallocate(const_cast<char *>(node->namespace_), allocator.state);
   allocator.deallocate(node, allocator.state);
-  // delete node_impl;
+
+  delete stub_node;
   context->impl->fini();
-  return result_ret;
+  return RMW_RET_OK;
 }
 
 extern "C" const rmw_guard_condition_t * rmw_node_get_graph_guard_condition(const rmw_node_t * node)
 {
-  // To implem
-  rmw_guard_condition_t * guardcondition;
-  return guardcondition;
+  auto stub_node = static_cast<StubNode *>(node->data);
+
+  return stub_node->get_node_graph_guard_condition();
 }
 
 // /////////////////////////////////////////////////////////////////////////////////////////
@@ -645,6 +598,27 @@ extern "C" rmw_ret_t rmw_fini_publisher_allocation(rmw_publisher_allocation_t * 
   return RMW_RET_UNSUPPORTED;
 }
 
+static rmw_publisher_t * create_publisher(
+  const rmw_qos_profile_t * qos_policies,
+  const rmw_publisher_options_t * publisher_options,
+  const rosidl_message_type_support_t * type_supports,
+  const char * topic_name)
+{
+  auto * pub = new StubPublisher(qos_policies, type_supports, topic_name);
+
+  rmw_publisher_t * rmw_publisher = rmw_publisher_allocate();
+
+  rmw_publisher->implementation_identifier = stub_identifier;
+  rmw_publisher->data = pub;
+  rmw_publisher->options = *publisher_options;
+  rmw_publisher->can_loan_messages = false;
+  rmw_publisher->topic_name = reinterpret_cast<char *>(rmw_allocate(strlen(topic_name) + 1));
+
+  memcpy(const_cast<char *>(rmw_publisher->topic_name), topic_name, strlen(topic_name) + 1);
+
+  return rmw_publisher;
+}
+
 extern "C" rmw_publisher_t * rmw_create_publisher(
   const rmw_node_t * node, const rosidl_message_type_support_t * type_supports,
   const char * topic_name, const rmw_qos_profile_t * qos_policies,
@@ -652,18 +626,24 @@ extern "C" rmw_publisher_t * rmw_create_publisher(
 )
 {
   RMW_CHECK_ARGUMENT_FOR_NULL(node, nullptr);
+
   RMW_CHECK_TYPE_IDENTIFIERS_MATCH(
     node,
     node->implementation_identifier,
     stub_identifier,
     return nullptr);
+
   RMW_CHECK_ARGUMENT_FOR_NULL(type_supports, nullptr);
+
   RMW_CHECK_ARGUMENT_FOR_NULL(topic_name, nullptr);
+
   if (0 == strlen(topic_name)) {
     RMW_SET_ERROR_MSG("topic_name argument is an empty string");
     return nullptr;
   }
+
   RMW_CHECK_ARGUMENT_FOR_NULL(qos_policies, nullptr);
+
   if (!qos_policies->avoid_ros_namespace_conventions) {
     int validation_result = RMW_TOPIC_VALID;
     rmw_ret_t ret = rmw_validate_full_topic_name(topic_name, &validation_result, nullptr);
@@ -676,44 +656,17 @@ extern "C" rmw_publisher_t * rmw_create_publisher(
       return nullptr;
     }
   }
+
   RMW_CHECK_ARGUMENT_FOR_NULL(publisher_options, nullptr);
 
-  rmw_publisher_t * pub;
-  // rmw_publisher_t * pub = create_publisher(
-  //   node->context->impl->ppant, node->context->impl->dds_pub,
-  //   type_supports, topic_name, qos_policies,
-  //   publisher_options);
-  // if (pub == nullptr) {
-  //   return nullptr;
-  // }
-  // auto cleanup_publisher = rcpputils::make_scope_exit(
-  //   [pub]() {
-  //     rmw_error_state_t error_state = *rmw_get_error_state();
-  //     rmw_reset_error();
-  //     if (RMW_RET_OK != destroy_publisher(pub)) {
-  //       RMW_SAFE_FWRITE_TO_STDERR(rmw_get_error_string().str);
-  //       RMW_SAFE_FWRITE_TO_STDERR(" during '" RCUTILS_STRINGIFY(__function__) "' cleanup\n");
-  //       rmw_reset_error();
-  //     }
-  //     rmw_set_error_state(error_state.message, error_state.file, error_state.line_number);
-  //   });
+  rmw_publisher_t * pub = create_publisher(qos_policies,
+                                    publisher_options,
+                                    type_supports,
+                                    topic_name);
 
-  // // Update graph
-  // auto common = &node->context->impl->common;
-  // const auto cddspub = static_cast<const CddsPublisher *>(pub->data);
-  // {
-  //   std::lock_guard<std::mutex> guard(common->node_update_mutex);
-  //   rmw_dds_common::msg::ParticipantEntitiesInfo msg =
-  //     common->graph_cache.associate_writer(cddspub->gid, common->gid, node->name, node->namespace_);
-  //   if (RMW_RET_OK != rmw_publish(common->pub, static_cast<void *>(&msg), nullptr)) {
-  //     static_cast<void>(common->graph_cache.dissociate_writer(
-  //       cddspub->gid, common->gid, node->name, node->namespace_));
-  //     return nullptr;
-  //   }
-  // }
-
-  // cleanup_publisher.cancel();
-  RMW_SET_ERROR_MSG("rmw_create_publisher: unimplemented");
+  if (pub == nullptr) {
+    return nullptr;
+  }
 
   return pub;
 }
@@ -727,15 +680,18 @@ extern "C" rmw_ret_t rmw_get_gid_for_publisher(const rmw_publisher_t * publisher
     stub_identifier,
     return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
   RMW_CHECK_ARGUMENT_FOR_NULL(gid, RMW_RET_INVALID_ARGUMENT);
-  // auto pub = static_cast<const CddsPublisher *>(publisher->data);
-  // gid->implementation_identifier = stub_identifier;
-  // memset(gid->data, 0, sizeof(gid->data));
-  // assert(sizeof(pub->pubiid) <= sizeof(gid->data));
-  // memcpy(gid->data, &pub->pubiid, sizeof(pub->pubiid));
-  RCUTILS_LOG_ERROR_NAMED(
-    "rmw_stub.cpp",
-    "rmw_get_gid_for_publisher not supported (yet)");
-  return RMW_RET_UNSUPPORTED;
+
+  gid->implementation_identifier = stub_identifier;
+
+  memset(gid->data, 0, sizeof(gid->data));
+
+  auto stub_pub = static_cast<const StubPublisher *>(publisher->data);
+
+  assert(sizeof(stub_pub->pubiid) <= sizeof(gid->data));
+
+  memcpy(gid->data, &stub_pub->pubiid, sizeof(stub_pub->pubiid));
+
+  return RMW_RET_OK;
 }
 
 extern "C" rmw_ret_t rmw_compare_gids_equal(
@@ -809,14 +765,12 @@ rmw_ret_t rmw_publisher_get_actual_qos(const rmw_publisher_t * publisher, rmw_qo
     stub_identifier,
     return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
   RMW_CHECK_ARGUMENT_FOR_NULL(qos, RMW_RET_INVALID_ARGUMENT);
-  // auto pub = static_cast<CddsPublisher *>(publisher->data);
-  // if (get_readwrite_qos(pub->enth, qos)) {
-  //   return RMW_RET_OK;
-  // }
-  RCUTILS_LOG_ERROR_NAMED(
-    "rmw_stub.cpp",
-    "rmw_publisher_get_actual_qos not supported (yet)");
-  return RMW_RET_ERROR;
+
+  auto stub_pub = static_cast<StubPublisher *>(publisher->data);
+
+  qos = stub_pub->get_qos_policies();
+
+  return RMW_RET_OK;
 }
 
 extern "C" rmw_ret_t rmw_borrow_loaned_message(

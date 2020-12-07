@@ -1,14 +1,8 @@
 #ifndef STUB_GUARD_CONDITION_HPP_
 #define STUB_GUARD_CONDITION_HPP_
 
-#include <array>
-#include <atomic>
-#include <cassert>
 #include <condition_variable>
 #include <mutex>
-#include <utility>
-
-#include "rcpputils/thread_safety_annotations.hpp"
 
 #include "rmw/listener_event_types.h"
 
