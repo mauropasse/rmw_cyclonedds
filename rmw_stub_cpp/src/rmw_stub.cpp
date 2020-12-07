@@ -1474,9 +1474,9 @@ extern "C" rmw_ret_t rmw_trigger_guard_condition(
   const rmw_guard_condition_t * guard_condition_handle)
 {
   RET_NULL(guard_condition_handle);
-  RET_WRONG_IMPLID(guard_condition_handle);
-  auto * gcond_impl = static_cast<CddsGuardCondition *>(guard_condition_handle->data);
-  dds_set_guardcondition(gcond_impl->gcondh, true);
+  //RET_WRONG_IMPLID(guard_condition_handle);
+  //auto * gcond_impl = static_cast<CddsGuardCondition *>(guard_condition_handle->data);
+  //dds_set_guardcondition(gcond_impl->gcondh, true);
   // return RMW_RET_OK;
   RCUTILS_LOG_ERROR_NAMED(
     "rmw_stub.cpp",
