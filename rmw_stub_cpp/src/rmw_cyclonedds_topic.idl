@@ -1,8 +1,0 @@
-module rmw {
-  module stub {
-    struct topic {
-      boolean dummy;
-    };
-#pragma keylist rmw::stub::topic
-  };
-};

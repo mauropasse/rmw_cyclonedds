@@ -48,10 +48,7 @@ ament_export_dependencies(rosidl_typesupport_introspection_cpp)
 
 add_library(rmw_stub_cpp
   src/rmw_stub.cpp
-  src/u16string.cpp
-  src/exception.cpp
-  src/demangle.cpp
-  src/TypeSupport2.cpp)
+)
 
 target_include_directories(rmw_stub_cpp
   PUBLIC
@@ -89,12 +86,6 @@ if(BUILD_TESTING)
 endif()
 
 ament_package()
-
-## Needed?
-# install(
-#   DIRECTORY include/
-#   DESTINATION include
-# )
 
 install(
   TARGETS rmw_stub_cpp

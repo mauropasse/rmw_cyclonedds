@@ -52,16 +52,9 @@
 #include "rmw/validate_namespace.h"
 #include "rmw/validate_node_name.h"
 
-#include "fallthrough_macro.hpp"
 #include "rcpputils/scope_exit.hpp"
 #include "rmw/impl/cpp/macros.hpp"
 #include "rmw/impl/cpp/key_value.hpp"
-
-#include "TypeSupport2.hpp"
-
-#include "rmw_version_test.hpp"
-#include "MessageTypeSupport.hpp"
-#include "ServiceTypeSupport.hpp"
 
 #include "rmw/get_topic_endpoint_info.h"
 #include "rmw/incompatible_qos_events_statuses.h"
@@ -72,10 +65,6 @@
 #include "rmw_dds_common/msg/participant_entities_info.hpp"
 
 #include "rosidl_typesupport_cpp/message_type_support.hpp"
-
-#include "namespace_prefix.hpp"
-
-#include "demangle.hpp"
 
 #include "rmw_stub_cpp/stub_guard_condition.hpp"
 
@@ -612,11 +601,6 @@ extern "C" const rmw_guard_condition_t * rmw_node_get_graph_guard_condition(cons
 ///////////    (DE)SERIALIZATION                                              ///////////
 ///////////                                                                   ///////////
 /////////////////////////////////////////////////////////////////////////////////////////
-
-using MessageTypeSupport_c =
-  rmw_stub_cpp::MessageTypeSupport<rosidl_typesupport_introspection_c__MessageMembers>;
-using MessageTypeSupport_cpp =
-  rmw_stub_cpp::MessageTypeSupport<rosidl_typesupport_introspection_cpp::MessageMembers>;
 
 extern "C" rmw_ret_t rmw_get_serialized_message_size(
   const rosidl_message_type_support_t * type_support,
@@ -1317,126 +1301,11 @@ extern "C" rmw_ret_t rmw_take_event(
   // RET_WRONG_IMPLID(event_handle);
   RET_NULL(taken);
   RET_NULL(event_info);
-  switch (event_handle->event_type) {
-    case RMW_EVENT_LIVELINESS_CHANGED: {
-        auto ei = static_cast<rmw_liveliness_changed_status_t *>(event_info);
-  //       auto sub = static_cast<CddsSubscription *>(event_handle->data);
-  //       dds_liveliness_changed_status_t st;
-  //       if (dds_get_liveliness_changed_status(sub->enth, &st) < 0) {
-  //         *taken = false;
-  //         return RMW_RET_ERROR;
-  //       } else {
-  //         ei->alive_count = static_cast<int32_t>(st.alive_count);
-  //         ei->not_alive_count = static_cast<int32_t>(st.not_alive_count);
-  //         ei->alive_count_change = st.alive_count_change;
-  //         ei->not_alive_count_change = st.not_alive_count_change;
-  //         *taken = true;
-  //         return RMW_RET_OK;
-  //       }
-      }
 
-  //   case RMW_EVENT_REQUESTED_DEADLINE_MISSED: {
-  //       auto ei = static_cast<rmw_requested_deadline_missed_status_t *>(event_info);
-  //       auto sub = static_cast<CddsSubscription *>(event_handle->data);
-  //       dds_requested_deadline_missed_status_t st;
-  //       if (dds_get_requested_deadline_missed_status(sub->enth, &st) < 0) {
-  //         *taken = false;
-  //         return RMW_RET_ERROR;
-  //       } else {
-  //         ei->total_count = static_cast<int32_t>(st.total_count);
-  //         ei->total_count_change = st.total_count_change;
-  //         *taken = true;
-  //         return RMW_RET_OK;
-  //       }
-  //     }
-
-  //   case RMW_EVENT_REQUESTED_QOS_INCOMPATIBLE: {
-  //       auto ei = static_cast<rmw_requested_qos_incompatible_event_status_t *>(event_info);
-  //       auto sub = static_cast<CddsSubscription *>(event_handle->data);
-  //       dds_requested_incompatible_qos_status_t st;
-  //       if (dds_get_requested_incompatible_qos_status(sub->enth, &st) < 0) {
-  //         *taken = false;
-  //         return RMW_RET_ERROR;
-  //       } else {
-  //         ei->total_count = static_cast<int32_t>(st.total_count);
-  //         ei->total_count_change = st.total_count_change;
-  //         ei->last_policy_kind = dds_qos_policy_to_rmw_qos_policy(
-  //           static_cast<dds_qos_policy_id_t>(st.last_policy_id));
-  //         *taken = true;
-  //         return RMW_RET_OK;
-  //       }
-  //     }
-
-  //   case RMW_EVENT_MESSAGE_LOST: {
-  //       auto ei = static_cast<rmw_message_lost_status_t *>(event_info);
-  //       auto sub = static_cast<CddsSubscription *>(event_handle->data);
-  //       dds_sample_lost_status_t st;
-  //       if (dds_get_sample_lost_status(sub->enth, &st) < 0) {
-  //         *taken = false;
-  //         return RMW_RET_ERROR;
-  //       }
-  //       ei->total_count = static_cast<size_t>(st.total_count);
-  //       ei->total_count_change = static_cast<size_t>(st.total_count_change);
-  //       *taken = true;
-  //       return RMW_RET_OK;
-  //     }
-
-  //   case RMW_EVENT_LIVELINESS_LOST: {
-  //       auto ei = static_cast<rmw_liveliness_lost_status_t *>(event_info);
-  //       auto pub = static_cast<CddsPublisher *>(event_handle->data);
-  //       dds_liveliness_lost_status_t st;
-  //       if (dds_get_liveliness_lost_status(pub->enth, &st) < 0) {
-  //         *taken = false;
-  //         return RMW_RET_ERROR;
-  //       } else {
-  //         ei->total_count = static_cast<int32_t>(st.total_count);
-  //         ei->total_count_change = st.total_count_change;
-  //         *taken = true;
-  //         return RMW_RET_OK;
-  //       }
-  //     }
-
-  //   case RMW_EVENT_OFFERED_DEADLINE_MISSED: {
-  //       auto ei = static_cast<rmw_offered_deadline_missed_status_t *>(event_info);
-  //       auto pub = static_cast<CddsPublisher *>(event_handle->data);
-  //       dds_offered_deadline_missed_status_t st;
-  //       if (dds_get_offered_deadline_missed_status(pub->enth, &st) < 0) {
-  //         *taken = false;
-  //         return RMW_RET_ERROR;
-  //       } else {
-  //         ei->total_count = static_cast<int32_t>(st.total_count);
-  //         ei->total_count_change = st.total_count_change;
-  //         *taken = true;
-  //         return RMW_RET_OK;
-  //       }
-  //     }
-
-  //   case RMW_EVENT_OFFERED_QOS_INCOMPATIBLE: {
-  //       auto ei = static_cast<rmw_offered_qos_incompatible_event_status_t *>(event_info);
-  //       auto pub = static_cast<CddsPublisher *>(event_handle->data);
-  //       dds_offered_incompatible_qos_status_t st;
-  //       if (dds_get_offered_incompatible_qos_status(pub->enth, &st) < 0) {
-  //         *taken = false;
-  //         return RMW_RET_ERROR;
-  //       } else {
-  //         ei->total_count = static_cast<int32_t>(st.total_count);
-  //         ei->total_count_change = st.total_count_change;
-  //         ei->last_policy_kind = dds_qos_policy_to_rmw_qos_policy(
-  //           static_cast<dds_qos_policy_id_t>(st.last_policy_id));
-  //         *taken = true;
-  //         return RMW_RET_OK;
-  //       }
-  //     }
-
-    case RMW_EVENT_INVALID: {
-        break;
-      }
-
-    default:
-      rmw_stub_cpp::unreachable();
-  }
-  // *taken = false;
-  return RMW_RET_ERROR;
+  RCUTILS_LOG_ERROR_NAMED(
+    "rmw_stub.cpp",
+    "rmw_take_event not implemented");
+  return RMW_RET_UNSUPPORTED;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -1561,9 +1430,10 @@ extern "C" rmw_ret_t rmw_destroy_wait_set(rmw_wait_set_t * wait_set)
   //   }
   // }
   // RMW_TRY_DESTRUCTOR(ws->~CddsWaitset(), ws, result = RMW_RET_ERROR);
-  rmw_free(wait_set->data);
-  rmw_wait_set_free(wait_set);
-  return result;
+  RCUTILS_LOG_ERROR_NAMED(
+    "rmw_stub.cpp",
+    "rmw_destroy_wait_set not supported");
+  return RMW_RET_UNSUPPORTED;
 }
 
 extern "C" rmw_ret_t rmw_wait(
@@ -1573,7 +1443,8 @@ extern "C" rmw_ret_t rmw_wait(
 {
   RCUTILS_LOG_ERROR_NAMED(
     "rmw_stub.cpp",
-    "rmw_wait");
+    "rmw_wait not supported");
+  return RMW_RET_UNSUPPORTED;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -1600,7 +1471,7 @@ extern "C" rmw_ret_t rmw_take_response(
 
   RCUTILS_LOG_ERROR_NAMED(
     "rmw_stub.cpp",
-    "rmw_take_response");
+    "rmw_take_response not supported");
   return RMW_RET_UNSUPPORTED;
 }
 
@@ -1618,7 +1489,7 @@ extern "C" rmw_ret_t rmw_take_request(
 
   RCUTILS_LOG_ERROR_NAMED(
     "rmw_stub.cpp",
-    "rmw_take_request");
+    "rmw_take_request not supported");
   return RMW_RET_UNSUPPORTED;
   // auto info = static_cast<CddsService *>(service->data);
   // return rmw_take_response_request(
@@ -1688,7 +1559,7 @@ extern "C" rmw_ret_t rmw_send_response(
 
   RCUTILS_LOG_ERROR_NAMED(
     "rmw_stub.cpp",
-    "rmw_send_response");
+    "rmw_send_response not supported");
   return RMW_RET_UNSUPPORTED;
 }
 
@@ -1720,7 +1591,7 @@ extern "C" rmw_ret_t rmw_send_request(
 //   return rmw_send_response_request(&info->client, header, ros_request);
   RCUTILS_LOG_ERROR_NAMED(
     "rmw_stub.cpp",
-    "rmw_send_request");
+    "rmw_send_request not supported");
   return RMW_RET_UNSUPPORTED;
 }
 
@@ -1784,7 +1655,7 @@ extern "C" rmw_ret_t rmw_destroy_client(rmw_node_t * node, rmw_client_t * client
   // return destroy_client(node, client);
   RCUTILS_LOG_ERROR_NAMED(
     "rmw_stub.cpp",
-    "rmw_destroy_client");
+    "rmw_destroy_client not supported");
   return RMW_RET_UNSUPPORTED;
 }
 
@@ -1809,11 +1680,11 @@ extern "C" rmw_service_t * rmw_create_service(
   rmw_service->service_name =
     reinterpret_cast<const char *>(rmw_allocate(strlen(service_name) + 1));
   RET_NULL_X(rmw_service->service_name, goto fail_service_name);
-  memcpy(const_cast<char *>(rmw_service->service_name), service_name, strlen(service_name) + 1);
+  //memcpy(const_cast<char *>(rmw_service->service_name), service_name, strlen(service_name) + 1);
 
   {
     // Update graph
-    auto common = &node->context->impl->common;
+    //auto common = &node->context->impl->common;
     // std::lock_guard<std::mutex> guard(common->node_update_mutex);
     // static_cast<void>(common->graph_cache.associate_writer(
     //   info->service.pub->gid, common->gid,
@@ -1871,7 +1742,7 @@ extern "C" rmw_ret_t rmw_get_node_names(
     return RMW_RET_INVALID_ARGUMENT;
   }
 
-  auto common_context = &node->context->impl->common;
+  // auto common_context = &node->context->impl->common;
   // rcutils_allocator_t allocator = rcutils_get_default_allocator();
   // return common_context->graph_cache.get_node_names(
   //   node_names,
@@ -1906,8 +1777,8 @@ extern "C" rmw_ret_t rmw_get_node_names_with_enclaves(
     return RMW_RET_INVALID_ARGUMENT;
   }
 
-  auto common_context = &node->context->impl->common;
-  rcutils_allocator_t allocator = rcutils_get_default_allocator();
+  // auto common_context = &node->context->impl->common;
+  // rcutils_allocator_t allocator = rcutils_get_default_allocator();
   // return common_context->graph_cache.get_node_names(
   //   node_names,
   //   node_namespaces,
@@ -1936,19 +1807,9 @@ extern "C" rmw_ret_t rmw_get_topic_names_and_types(
   if (RMW_RET_OK != rmw_names_and_types_check_zero(tptyp)) {
     return RMW_RET_INVALID_ARGUMENT;
   }
-
-  DemangleFunction demangle_topic = _demangle_ros_topic_from_topic;
-  DemangleFunction demangle_type = _demangle_if_ros_type;
-  if (no_demangle) {
-    demangle_topic = _identity_demangle;
-    demangle_type = _identity_demangle;
-  }
-  auto common_context = &node->context->impl->common;
-  // return common_context->graph_cache.get_names_and_types(
-  //   demangle_topic,
-  //   demangle_type,
-  //   allocator,
-  //   tptyp);
+  RCUTILS_LOG_ERROR_NAMED(
+    "rmw_stub.cpp",
+    "rmw_get_topic_names_and_types unsupported");
   return RMW_RET_UNSUPPORTED;
 }
 
@@ -1969,12 +1830,15 @@ extern "C" rmw_ret_t rmw_get_service_names_and_types(
     return RMW_RET_INVALID_ARGUMENT;
   }
 
-  auto common_context = &node->context->impl->common;
+  //auto common_context = &node->context->impl->common;
   // return common_context->graph_cache.get_names_and_types(
   //   _demangle_service_from_topic,
   //   _demangle_service_type_only,
   //   allocator,
   //   sntyp);
+  RCUTILS_LOG_ERROR_NAMED(
+    "rmw_stub.cpp",
+    "rmw_get_service_names_and_types unsupported");
   return RMW_RET_UNSUPPORTED;
 }
 
@@ -1988,7 +1852,7 @@ extern "C" rmw_ret_t rmw_service_server_is_available(
   RET_NULL(client);
   // RET_WRONG_IMPLID(client);
   RET_NULL(is_available);
-  *is_available = false;
+  //*is_available = false;
 
   // auto info = static_cast<CddsClient *>(client->data);
   // auto common_context = &node->context->impl->common;
@@ -2032,19 +1896,19 @@ extern "C" rmw_ret_t rmw_count_publishers(
     stub_identifier,
     return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
   RMW_CHECK_ARGUMENT_FOR_NULL(topic_name, RMW_RET_INVALID_ARGUMENT);
-  int validation_result = RMW_TOPIC_VALID;
-  rmw_ret_t ret = rmw_validate_full_topic_name(topic_name, &validation_result, nullptr);
-  if (RMW_RET_OK != ret) {
-    return ret;
-  }
-  if (RMW_TOPIC_VALID != validation_result) {
-    const char * reason = rmw_full_topic_name_validation_result_string(validation_result);
-    RMW_SET_ERROR_MSG_WITH_FORMAT_STRING("topic_name argument is invalid: %s", reason);
-    return RMW_RET_INVALID_ARGUMENT;
-  }
-  RMW_CHECK_ARGUMENT_FOR_NULL(count, RMW_RET_INVALID_ARGUMENT);
+  // int validation_result = RMW_TOPIC_VALID;
+  // rmw_ret_t ret = rmw_validate_full_topic_name(topic_name, &validation_result, nullptr);
+  // if (RMW_RET_OK != ret) {
+  //   return ret;
+  // }
+  // if (RMW_TOPIC_VALID != validation_result) {
+  //   const char * reason = rmw_full_topic_name_validation_result_string(validation_result);
+  //   RMW_SET_ERROR_MSG_WITH_FORMAT_STRING("topic_name argument is invalid: %s", reason);
+  //   return RMW_RET_INVALID_ARGUMENT;
+  // }
+  // RMW_CHECK_ARGUMENT_FOR_NULL(count, RMW_RET_INVALID_ARGUMENT);
 
-  auto common_context = &node->context->impl->common;
+  // auto common_context = &node->context->impl->common;
   // const std::string mangled_topic_name = make_fqtopic(ROS_TOPIC_PREFIX, topic_name, "", false);
   // return common_context->graph_cache.get_writer_count(mangled_topic_name, count);
       RCUTILS_LOG_ERROR_NAMED(
@@ -2064,19 +1928,19 @@ extern "C" rmw_ret_t rmw_count_subscribers(
     stub_identifier,
     return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
   RMW_CHECK_ARGUMENT_FOR_NULL(topic_name, RMW_RET_INVALID_ARGUMENT);
-  int validation_result = RMW_TOPIC_VALID;
-  rmw_ret_t ret = rmw_validate_full_topic_name(topic_name, &validation_result, nullptr);
-  if (RMW_RET_OK != ret) {
-    return ret;
-  }
-  if (RMW_TOPIC_VALID != validation_result) {
-    const char * reason = rmw_full_topic_name_validation_result_string(validation_result);
-    RMW_SET_ERROR_MSG_WITH_FORMAT_STRING("topic_name argument is invalid: %s", reason);
-    return RMW_RET_INVALID_ARGUMENT;
-  }
-  RMW_CHECK_ARGUMENT_FOR_NULL(count, RMW_RET_INVALID_ARGUMENT);
+  // int validation_result = RMW_TOPIC_VALID;
+  // rmw_ret_t ret = rmw_validate_full_topic_name(topic_name, &validation_result, nullptr);
+  // if (RMW_RET_OK != ret) {
+  //   return ret;
+  // }
+  // if (RMW_TOPIC_VALID != validation_result) {
+  //   const char * reason = rmw_full_topic_name_validation_result_string(validation_result);
+  //   RMW_SET_ERROR_MSG_WITH_FORMAT_STRING("topic_name argument is invalid: %s", reason);
+  //   return RMW_RET_INVALID_ARGUMENT;
+  // }
+  // RMW_CHECK_ARGUMENT_FOR_NULL(count, RMW_RET_INVALID_ARGUMENT);
 
-  auto common_context = &node->context->impl->common;
+  // auto common_context = &node->context->impl->common;
   // const std::string mangled_topic_name = make_fqtopic(ROS_TOPIC_PREFIX, topic_name, "", false);
   // return common_context->graph_cache.get_reader_count(mangled_topic_name, count);
       RCUTILS_LOG_ERROR_NAMED(
@@ -2191,9 +2055,9 @@ extern "C" rmw_ret_t rmw_get_publishers_info_by_topic(
     return RMW_RET_INVALID_ARGUMENT;
   }
 
-  auto common_context = &node->context->impl->common;
-  std::string mangled_topic_name = topic_name;
-  DemangleFunction demangle_type = _identity_demangle;
+  // auto common_context = &node->context->impl->common;
+  // std::string mangled_topic_name = topic_name;
+  // DemangleFunction demangle_type = _identity_demangle;
   // if (!no_mangle) {
   //   mangled_topic_name = make_fqtopic(ROS_TOPIC_PREFIX, topic_name, "", false);
   //   demangle_type = _demangle_if_ros_type;
@@ -2229,9 +2093,9 @@ extern "C" rmw_ret_t rmw_get_subscriptions_info_by_topic(
     return RMW_RET_INVALID_ARGUMENT;
   }
 
-  auto common_context = &node->context->impl->common;
-  std::string mangled_topic_name = topic_name;
-  DemangleFunction demangle_type = _identity_demangle;
+  // auto common_context = &node->context->impl->common;
+  // std::string mangled_topic_name = topic_name;
+  // DemangleFunction demangle_type = _identity_demangle;
   // if (!no_mangle) {
   //   mangled_topic_name = make_fqtopic(ROS_TOPIC_PREFIX, topic_name, "", false);
   //   demangle_type = _demangle_if_ros_type;
