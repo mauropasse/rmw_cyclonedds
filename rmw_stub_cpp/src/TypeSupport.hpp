@@ -36,8 +36,6 @@
 #include "rosidl_typesupport_introspection_c/message_introspection.h"
 #include "rosidl_typesupport_introspection_c/service_introspection.h"
 
-#include "serdes.hpp"
-
 namespace rmw_stub_cpp
 {
 
@@ -75,14 +73,6 @@ struct StringHelper<rosidl_typesupport_introspection_c__MessageMembers>
   {
     return std::string(data.data);
   }
-
-  static void assign(cycdeser & deser, void * field)
-  {
-    std::string str;
-    deser >> str;
-    rosidl_runtime_c__String * c_str = static_cast<rosidl_runtime_c__String *>(field);
-    rosidl_runtime_c__String__assign(c_str, str.c_str());
-  }
 };
 
 // For C++ introspection typesupport we just reuse the same std::string transparently.
@@ -95,24 +85,12 @@ struct StringHelper<rosidl_typesupport_introspection_cpp::MessageMembers>
   {
     return *(static_cast<std::string *>(data));
   }
-
-  static void assign(cycdeser & deser, void * field)
-  {
-    std::string & str = *(std::string *)field;
-    deser >> str;
-  }
 };
 
 template<typename MembersType>
 class TypeSupport
 {
 public:
-  bool deserializeROSmessage(
-    cycdeser & deser, void * ros_message,
-    std::function<void(cycdeser &)> prefix = nullptr);
-  bool printROSmessage(
-    cycprint & deser,
-    std::function<void(cycprint &)> prefix = nullptr);
   std::string getName();
   virtual ~TypeSupport() = default;
 
@@ -123,12 +101,6 @@ protected:
 
   const MembersType * members_;
   std::string name;
-
-private:
-  bool deserializeROSmessage(
-    cycdeser & deser, const MembersType * members, void * ros_message);
-  bool printROSmessage(
-    cycprint & deser, const MembersType * members);
 };
 
 }  // namespace rmw_stub_cpp

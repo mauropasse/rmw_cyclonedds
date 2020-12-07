@@ -53,7 +53,6 @@
 #include "rmw/validate_node_name.h"
 
 #include "fallthrough_macro.hpp"
-#include "Serialization.hpp"
 #include "rcpputils/scope_exit.hpp"
 #include "rmw/impl/cpp/macros.hpp"
 #include "rmw/impl/cpp/key_value.hpp"
@@ -76,9 +75,12 @@
 
 #include "namespace_prefix.hpp"
 
-#include "serdes.hpp"
-#include "serdata.hpp"
 #include "demangle.hpp"
+
+#include "rmw_stub_cpp/stub_guard_condition.hpp"
+
+
+
 
 using namespace std::literals::chrono_literals;
 
@@ -1472,13 +1474,13 @@ extern "C" rmw_ret_t rmw_trigger_guard_condition(
   const rmw_guard_condition_t * guard_condition_handle)
 {
   RET_NULL(guard_condition_handle);
-  // RET_WRONG_IMPLID(guard_condition_handle);
-  // auto * gcond_impl = static_cast<CddsGuardCondition *>(guard_condition_handle->data);
-  // dds_set_guardcondition(gcond_impl->gcondh, true);
+  RET_WRONG_IMPLID(guard_condition_handle);
+  auto * gcond_impl = static_cast<CddsGuardCondition *>(guard_condition_handle->data);
+  dds_set_guardcondition(gcond_impl->gcondh, true);
   // return RMW_RET_OK;
   RCUTILS_LOG_ERROR_NAMED(
     "rmw_stub.cpp",
-    "rmw_trigger_guard_condition");
+    "rmw_trigger_guard_condition not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 

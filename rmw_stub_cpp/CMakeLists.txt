@@ -36,6 +36,8 @@ find_package(rosidl_runtime_c REQUIRED)
 find_package(rosidl_typesupport_introspection_c REQUIRED)
 find_package(rosidl_typesupport_introspection_cpp REQUIRED)
 
+ament_export_include_directories(include)
+
 ament_export_dependencies(rcutils)
 ament_export_dependencies(rcpputils)
 ament_export_dependencies(rmw)
@@ -46,14 +48,15 @@ ament_export_dependencies(rosidl_typesupport_introspection_cpp)
 
 add_library(rmw_stub_cpp
   src/rmw_stub.cpp
-  # src/serdata.cpp
-  # src/serdes.cpp
   src/u16string.cpp
   src/exception.cpp
   src/demangle.cpp
-  # src/deserialization_exception.cpp
-  # src/Serialization.cpp
   src/TypeSupport2.cpp)
+
+target_include_directories(rmw_stub_cpp
+  PUBLIC
+  "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+  "$<INSTALL_INTERFACE:include>")
 
 ament_target_dependencies(rmw_stub_cpp
   "rcutils"
@@ -86,6 +89,12 @@ if(BUILD_TESTING)
 endif()
 
 ament_package()
+
+## Needed?
+# install(
+#   DIRECTORY include/
+#   DESTINATION include
+# )
 
 install(
   TARGETS rmw_stub_cpp
