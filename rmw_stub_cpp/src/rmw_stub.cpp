@@ -729,17 +729,11 @@ extern "C" rmw_ret_t rmw_publisher_count_matched_subscriptions(
     return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
   RMW_CHECK_ARGUMENT_FOR_NULL(subscription_count, RMW_RET_INVALID_ARGUMENT);
 
-  // auto pub = static_cast<CddsPublisher *>(publisher->data);
-  // dds_publication_matched_status_t status;
-  // if (dds_get_publication_matched_status(pub->enth, &status) < 0) {
-  //   return RMW_RET_ERROR;
-  // }
+  auto stub_pub = static_cast<StubPublisher *>(publisher->data);
 
-  // *subscription_count = status.current_count;
-  RCUTILS_LOG_ERROR_NAMED(
-    "rmw_stub.cpp",
-    "rmw_publisher_count_matched_subscriptions not supported (yet)");
-  return RMW_RET_UNSUPPORTED;
+  *subscription_count = stub_pub->get_subscription_count();
+
+  return RMW_RET_OK;
 }
 
 rmw_ret_t rmw_publisher_assert_liveliness(const rmw_publisher_t * publisher)
