@@ -83,6 +83,8 @@ using rmw_dds_common::msg::ParticipantEntitiesInfo;
 const char * const stub_identifier = "rmw_stub_cpp";
 const char * const stub_serialization_format = "cdr";
 
+static const char ROS_TOPIC_PREFIX[] = "rt";
+
 extern "C" const char * rmw_get_implementation_identifier()
 {
   return stub_identifier;
@@ -356,6 +358,7 @@ extern "C" rmw_ret_t rmw_init(const rmw_init_options_t * options, rmw_context_t 
     RMW_DEFAULT_DOMAIN_ID != options->domain_id ? options->domain_id : 0u;
 
   context->impl = new (std::nothrow) rmw_context_impl_t();
+
   if (nullptr == context->impl) {
     RMW_SET_ERROR_MSG("failed to allocate context impl");
     return RMW_RET_BAD_ALLOC;
@@ -1506,17 +1509,15 @@ extern "C" rmw_ret_t rmw_get_node_names(
     return RMW_RET_INVALID_ARGUMENT;
   }
 
-  // auto common_context = &node->context->impl->common;
-  // rcutils_allocator_t allocator = rcutils_get_default_allocator();
-  // return common_context->graph_cache.get_node_names(
-  //   node_names,
-  //   node_namespaces,
-  //   nullptr,
-  //   &allocator);
-  RCUTILS_LOG_ERROR_NAMED(
-    "rmw_stub.cpp",
-    "rmw_get_node_names");
-  return RMW_RET_UNSUPPORTED;
+  auto common_context = static_cast<rmw_dds_common::Context *>(node->context->impl->common);
+
+  rcutils_allocator_t allocator = rcutils_get_default_allocator();
+
+  return common_context->graph_cache.get_node_names(
+    node_names,
+    node_namespaces,
+    nullptr,
+    &allocator);
 }
 
 extern "C" rmw_ret_t rmw_get_node_names_with_enclaves(
@@ -1649,6 +1650,17 @@ extern "C" rmw_ret_t rmw_service_server_is_available(
   return RMW_RET_UNSUPPORTED;
 }
 
+static std::string mangle_topic_name(
+  const char * prefix, const char * topic_name, const char * suffix,
+  bool avoid_ros_namespace_conventions)
+{
+  if (avoid_ros_namespace_conventions) {
+    return std::string(topic_name) + std::string(suffix);
+  } else {
+    return std::string(prefix) + std::string(topic_name) + std::string(suffix);
+  }
+}
+
 extern "C" rmw_ret_t rmw_count_publishers(
   const rmw_node_t * node, const char * topic_name,
   size_t * count)
@@ -1660,25 +1672,21 @@ extern "C" rmw_ret_t rmw_count_publishers(
     stub_identifier,
     return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
   RMW_CHECK_ARGUMENT_FOR_NULL(topic_name, RMW_RET_INVALID_ARGUMENT);
-  // int validation_result = RMW_TOPIC_VALID;
-  // rmw_ret_t ret = rmw_validate_full_topic_name(topic_name, &validation_result, nullptr);
-  // if (RMW_RET_OK != ret) {
-  //   return ret;
-  // }
-  // if (RMW_TOPIC_VALID != validation_result) {
-  //   const char * reason = rmw_full_topic_name_validation_result_string(validation_result);
-  //   RMW_SET_ERROR_MSG_WITH_FORMAT_STRING("topic_name argument is invalid: %s", reason);
-  //   return RMW_RET_INVALID_ARGUMENT;
-  // }
-  // RMW_CHECK_ARGUMENT_FOR_NULL(count, RMW_RET_INVALID_ARGUMENT);
+  int validation_result = RMW_TOPIC_VALID;
+  rmw_ret_t ret = rmw_validate_full_topic_name(topic_name, &validation_result, nullptr);
+  if (RMW_RET_OK != ret) {
+    return ret;
+  }
+  if (RMW_TOPIC_VALID != validation_result) {
+    const char * reason = rmw_full_topic_name_validation_result_string(validation_result);
+    RMW_SET_ERROR_MSG_WITH_FORMAT_STRING("topic_name argument is invalid: %s", reason);
+    return RMW_RET_INVALID_ARGUMENT;
+  }
+  RMW_CHECK_ARGUMENT_FOR_NULL(count, RMW_RET_INVALID_ARGUMENT);
 
-  // auto common_context = &node->context->impl->common;
-  // const std::string mangled_topic_name = make_fqtopic(ROS_TOPIC_PREFIX, topic_name, "", false);
-  // return common_context->graph_cache.get_writer_count(mangled_topic_name, count);
-      RCUTILS_LOG_ERROR_NAMED(
-    "rmw_stub.cpp",
-    "rmw_count_publishers");
-  return RMW_RET_UNSUPPORTED;
+  auto common_context = static_cast<rmw_dds_common::Context *>(node->context->impl->common);
+  const std::string mangled_topic_name = mangle_topic_name(ROS_TOPIC_PREFIX, topic_name, "", false);
+  return common_context->graph_cache.get_writer_count(mangled_topic_name, count);
 }
 
 extern "C" rmw_ret_t rmw_count_subscribers(
@@ -1692,25 +1700,23 @@ extern "C" rmw_ret_t rmw_count_subscribers(
     stub_identifier,
     return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
   RMW_CHECK_ARGUMENT_FOR_NULL(topic_name, RMW_RET_INVALID_ARGUMENT);
-  // int validation_result = RMW_TOPIC_VALID;
-  // rmw_ret_t ret = rmw_validate_full_topic_name(topic_name, &validation_result, nullptr);
-  // if (RMW_RET_OK != ret) {
-  //   return ret;
-  // }
-  // if (RMW_TOPIC_VALID != validation_result) {
-  //   const char * reason = rmw_full_topic_name_validation_result_string(validation_result);
-  //   RMW_SET_ERROR_MSG_WITH_FORMAT_STRING("topic_name argument is invalid: %s", reason);
-  //   return RMW_RET_INVALID_ARGUMENT;
-  // }
-  // RMW_CHECK_ARGUMENT_FOR_NULL(count, RMW_RET_INVALID_ARGUMENT);
+  int validation_result = RMW_TOPIC_VALID;
+  rmw_ret_t ret = rmw_validate_full_topic_name(topic_name, &validation_result, nullptr);
+  if (RMW_RET_OK != ret) {
+    return ret;
+  }
+  if (RMW_TOPIC_VALID != validation_result) {
+    const char * reason = rmw_full_topic_name_validation_result_string(validation_result);
+    RMW_SET_ERROR_MSG_WITH_FORMAT_STRING("topic_name argument is invalid: %s", reason);
+    return RMW_RET_INVALID_ARGUMENT;
+  }
+  RMW_CHECK_ARGUMENT_FOR_NULL(count, RMW_RET_INVALID_ARGUMENT);
 
-  // auto common_context = &node->context->impl->common;
-  // const std::string mangled_topic_name = make_fqtopic(ROS_TOPIC_PREFIX, topic_name, "", false);
-  // return common_context->graph_cache.get_reader_count(mangled_topic_name, count);
-      RCUTILS_LOG_ERROR_NAMED(
-    "rmw_stub.cpp",
-    "rmw_count_subscribers");
-    return RMW_RET_UNSUPPORTED;
+  auto common_context = static_cast<rmw_dds_common::Context *>(node->context->impl->common);
+
+  const std::string mangled_topic_name = mangle_topic_name(ROS_TOPIC_PREFIX, topic_name, "", false);
+
+  return common_context->graph_cache.get_reader_count(mangled_topic_name, count);
 }
 
 
@@ -1823,7 +1829,7 @@ extern "C" rmw_ret_t rmw_get_publishers_info_by_topic(
   // std::string mangled_topic_name = topic_name;
   // DemangleFunction demangle_type = _identity_demangle;
   // if (!no_mangle) {
-  //   mangled_topic_name = make_fqtopic(ROS_TOPIC_PREFIX, topic_name, "", false);
+  //   mangled_topic_name = mangle_topic_name(ROS_TOPIC_PREFIX, topic_name, "", false);
   //   demangle_type = _demangle_if_ros_type;
   // }
   // return common_context->graph_cache.get_writers_info_by_topic(
@@ -1861,7 +1867,7 @@ extern "C" rmw_ret_t rmw_get_subscriptions_info_by_topic(
   // std::string mangled_topic_name = topic_name;
   // DemangleFunction demangle_type = _identity_demangle;
   // if (!no_mangle) {
-  //   mangled_topic_name = make_fqtopic(ROS_TOPIC_PREFIX, topic_name, "", false);
+  //   mangled_topic_name = mangle_topic_name(ROS_TOPIC_PREFIX, topic_name, "", false);
   //   demangle_type = _demangle_if_ros_type;
   // }
   // return common_context->graph_cache.get_readers_info_by_topic(

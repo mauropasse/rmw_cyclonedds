@@ -11,6 +11,7 @@ public:
     const rosidl_message_type_support_t * type_supports,
     const char * topic_name)
   {
+    std::cout << "Create StubPublisher" << std::endl;
     pub_qos_ = qos_policies;
     type_supports_ = type_supports;
     static uint64_t id = 0;

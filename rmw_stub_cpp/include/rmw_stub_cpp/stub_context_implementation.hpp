@@ -10,17 +10,15 @@ struct rmw_context_impl_t
 
   /* Participant reference count*/
   size_t node_count{0};
+
+  /// Mutex used to protect initialization/destruction.
   std::mutex initialization_mutex;
 
   /* Shutdown flag */
   bool is_shutdown{false};
 
-  /* suffix for GUIDs to construct unique client/service ids
-     (protected by initialization_mutex) */
-  uint32_t client_service_id;
-
   rmw_context_impl_t()
-  : common(), client_service_id(0)
+  : common()
   {
     /* destructor relies on these being initialized properly */
   }

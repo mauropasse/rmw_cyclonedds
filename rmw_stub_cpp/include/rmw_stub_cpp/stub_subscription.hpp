@@ -13,6 +13,8 @@ public:
     const char * topic_name)
   {
     // Check what we need/don't need for a basic IPC comms
+    std::cout << "Create StubSubscription" << std::endl;
+
     sub_qos_ = qos_policies;
     sub_options_ = subscription_options;
     type_supports_ = type_supports;

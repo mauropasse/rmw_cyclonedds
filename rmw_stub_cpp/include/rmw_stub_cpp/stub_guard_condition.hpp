@@ -9,12 +9,16 @@
 class StubGuardCondition
 {
 public:
-  StubGuardCondition() = default;
+  StubGuardCondition() {
+    std::cout << "Create StubGuardCondition" << std::endl;
+  }
 
   void
   trigger()
   {
     std::unique_lock<std::mutex> lock_mutex(listener_callback_mutex_);
+
+    std::cout << "trigger guard condition!!" << std::endl;
 
     if(listener_callback_)
     {
