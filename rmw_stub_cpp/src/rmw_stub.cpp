@@ -779,6 +779,14 @@ extern "C" rmw_ret_t rmw_return_loaned_message_from_publisher(
   return RMW_RET_UNSUPPORTED;
 }
 
+static void destroy_publisher(rmw_publisher_t * publisher)
+{
+  auto stub_pub = static_cast<StubPublisher *>(publisher->data);
+  delete stub_pub;
+  rmw_free(const_cast<char *>(publisher->topic_name));
+  rmw_publisher_free(publisher);
+}
+
 extern "C" rmw_ret_t rmw_destroy_publisher(rmw_node_t * node, rmw_publisher_t * publisher)
 {
   RMW_CHECK_ARGUMENT_FOR_NULL(node, RMW_RET_INVALID_ARGUMENT);
@@ -794,45 +802,9 @@ extern "C" rmw_ret_t rmw_destroy_publisher(rmw_node_t * node, rmw_publisher_t * 
     stub_identifier,
     return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
-  // rmw_ret_t ret = RMW_RET_OK;
+  destroy_publisher(publisher);
 
-  // rmw_error_state_t error_state;
-  // {
-  //   auto common = &node->context->impl->common;
-  //   const auto cddspub = static_cast<const CddsPublisher *>(publisher->data);
-  //   std::lock_guard<std::mutex> guard(common->node_update_mutex);
-  //   rmw_dds_common::msg::ParticipantEntitiesInfo msg =
-  //     common->graph_cache.dissociate_writer(
-  //     cddspub->gid, common->gid, node->name,
-  //     node->namespace_);
-  //   rmw_ret_t publish_ret =
-  //     rmw_publish(common->pub, static_cast<void *>(&msg), nullptr);
-  //   if (RMW_RET_OK != publish_ret) {
-  //     error_state = *rmw_get_error_state();
-  //     ret = publish_ret;
-  //     rmw_reset_error();
-  //   }
-  // }
-
-  // rmw_ret_t inner_ret = destroy_publisher(publisher);
-  // if (RMW_RET_OK != inner_ret) {
-  //   if (RMW_RET_OK != ret) {
-  //     RMW_SAFE_FWRITE_TO_STDERR(rmw_get_error_string().str);
-  //     RMW_SAFE_FWRITE_TO_STDERR(" during '" RCUTILS_STRINGIFY(__function__) "'\n");
-  //   } else {
-  //     error_state = *rmw_get_error_state();
-  //     ret = inner_ret;
-  //   }
-  //   rmw_reset_error();
-  // }
-
-  // if (RMW_RET_OK != ret) {
-  //   rmw_set_error_state(error_state.message, error_state.file, error_state.line_number);
-  // }
-
-    RMW_SET_ERROR_MSG(
-      "rmw_destroy_publisher not implemented for rmw_stub_cpp");
-    return RMW_RET_UNSUPPORTED;
+  return RMW_RET_OK;
 }
 
 
