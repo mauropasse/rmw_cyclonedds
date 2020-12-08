@@ -15,6 +15,7 @@ public:
     type_supports_ = type_supports;
     static uint64_t id = 0;
     pubiid = id++;
+    topic_name_ = std::string(topic_name);
   }
 
   rmw_qos_profile_t * get_qos_policies()
@@ -45,6 +46,7 @@ private:
   const rosidl_message_type_support_t * type_supports_;
   std::mutex mutex_;
   std::vector<uint64_t> matched_subscriptions_;
+  std::string topic_name_;
 
 };
 

@@ -68,8 +68,9 @@
 
 #include "rmw_stub_cpp/stub_context_implementation.hpp"
 #include "rmw_stub_cpp/stub_guard_condition.hpp"
-#include "rmw_stub_cpp/stub_publisher.hpp"
 #include "rmw_stub_cpp/stub_node.hpp"
+#include "rmw_stub_cpp/stub_publisher.hpp"
+#include "rmw_stub_cpp/stub_subscription.hpp"
 
 using namespace std::literals::chrono_literals;
 
@@ -219,24 +220,6 @@ extern "C" const char * rmw_get_serialization_format()
 extern "C" rmw_ret_t rmw_set_log_severity(rmw_log_severity_t severity)
 {
   RCUTILS_LOG_ERROR_NAMED("rmw_stub.cpp","rmw_set_log_severity not supported");
-  return RMW_RET_UNSUPPORTED;
-}
-
-extern "C" rmw_ret_t rmw_subscription_set_listener_callback(
-  const void * user_data,
-  rmw_listener_cb_t callback,
-  const void * subscription_handle,
-  rmw_subscription_t * rmw_subscription)
-{
-  (void)user_data;
-  (void)callback;
-  (void)subscription_handle;
-  (void)rmw_subscription;
-  // auto subscription = static_cast<CddsSubscription *>(rmw_subscription->data);
-  // subscription->setCallback(user_data, callback, subscription_handle);
-  RCUTILS_LOG_ERROR_NAMED(
-    "rmw_stub.cpp",
-    "rmw_subscription_set_listener_callback: not supported (yet)");
   return RMW_RET_UNSUPPORTED;
 }
 
@@ -479,7 +462,7 @@ extern "C" rmw_ret_t rmw_destroy_node(rmw_node_t * node)
   allocator.deallocate(node, allocator.state);
 
   delete stub_node;
-  context->impl->fini();
+  // context->impl->fini();
   return RMW_RET_OK;
 }
 
@@ -659,16 +642,19 @@ extern "C" rmw_publisher_t * rmw_create_publisher(
 
   RMW_CHECK_ARGUMENT_FOR_NULL(publisher_options, nullptr);
 
-  rmw_publisher_t * pub = create_publisher(qos_policies,
-                                    publisher_options,
-                                    type_supports,
-                                    topic_name);
+  rmw_publisher_t * stub_pub;
 
-  if (pub == nullptr) {
+  stub_pub = create_publisher(
+    qos_policies,
+    publisher_options,
+    type_supports,
+    topic_name);
+
+  if (stub_pub == nullptr) {
     return nullptr;
   }
 
-  return pub;
+  return stub_pub;
 }
 
 extern "C" rmw_ret_t rmw_get_gid_for_publisher(const rmw_publisher_t * publisher, rmw_gid_t * gid)
@@ -875,6 +861,27 @@ extern "C" rmw_ret_t rmw_fini_subscription_allocation(rmw_subscription_allocatio
   return RMW_RET_UNSUPPORTED;
 }
 
+static rmw_subscription_t * create_subscription(
+  const rmw_qos_profile_t * qos_policies,
+  const rmw_subscription_options_t * subscription_options,
+  const rosidl_message_type_support_t * type_supports,
+  const char * topic_name)
+{
+  auto * sub = new StubSubscription(qos_policies, subscription_options, type_supports, topic_name);
+
+  rmw_subscription_t * rmw_subscription = rmw_subscription_allocate();
+
+  rmw_subscription->implementation_identifier = stub_identifier;
+  rmw_subscription->data = sub;
+  rmw_subscription->options = *subscription_options;
+  rmw_subscription->can_loan_messages = false;
+  rmw_subscription->topic_name = reinterpret_cast<char *>(rmw_allocate(strlen(topic_name) + 1));
+
+  memcpy(const_cast<char *>(rmw_subscription->topic_name), topic_name, strlen(topic_name) + 1);
+
+  return rmw_subscription;
+}
+
 extern "C" rmw_subscription_t * rmw_create_subscription(
   const rmw_node_t * node, const rosidl_message_type_support_t * type_supports,
   const char * topic_name, const rmw_qos_profile_t * qos_policies,
@@ -907,44 +914,30 @@ extern "C" rmw_subscription_t * rmw_create_subscription(
   }
   RMW_CHECK_ARGUMENT_FOR_NULL(subscription_options, nullptr);
 
-  rmw_subscription_t * sub;
-  // sub = create_subscription(
-  //   node->context->impl->ppant, node->context->impl->dds_sub,
-  //   type_supports, topic_name, qos_policies,
-  //   subscription_options);
-  if (sub == nullptr) {
+  rmw_subscription_t * stub_sub;
+
+  stub_sub = create_subscription(
+    qos_policies,
+    subscription_options,
+    type_supports,
+    topic_name);
+
+  if (stub_sub == nullptr) {
     return nullptr;
   }
-  auto cleanup_subscription = rcpputils::make_scope_exit(
-    [sub]() {
-      rmw_error_state_t error_state = *rmw_get_error_state();
-      rmw_reset_error();
-      // if (RMW_RET_OK != destroy_subscription(sub)) {
-      //   RMW_SAFE_FWRITE_TO_STDERR(rmw_get_error_string().str);
-      //   RMW_SAFE_FWRITE_TO_STDERR(" during '" RCUTILS_STRINGIFY(__function__) "' cleanup\n");
-      //   rmw_reset_error();
-      // }
-      rmw_set_error_state(error_state.message, error_state.file, error_state.line_number);
-    });
 
-  // Update graph
-  auto common = &node->context->impl->common;
-  //const auto cddssub = static_cast<const CddsSubscription *>(sub->data);
-  // std::lock_guard<std::mutex> guard(common->node_update_mutex);
-  // rmw_dds_common::msg::ParticipantEntitiesInfo msg =
-  //   common->graph_cache.associate_reader(cddssub->gid, common->gid, node->name, node->namespace_);
-  // if (RMW_RET_OK != rmw_publish(
-  //     common->pub,
-  //     static_cast<void *>(&msg),
-  //     nullptr))
-  // {
-  //   static_cast<void>(common->graph_cache.dissociate_reader(
-  //     cddssub->gid, common->gid, node->name, node->namespace_));
-  //   return nullptr;
-  // }
+  return stub_sub;
+}
 
-  // cleanup_subscription.cancel();
-  return sub;
+extern "C" rmw_ret_t rmw_subscription_set_listener_callback(
+  const void * user_data,
+  rmw_listener_cb_t callback,
+  const void * subscription_handle,
+  rmw_subscription_t * rmw_subscription)
+{
+  auto stub_sub = static_cast<StubSubscription *>(rmw_subscription->data);
+  stub_sub->set_callback(user_data, callback, subscription_handle);
+  return RMW_RET_OK;
 }
 
 extern "C" rmw_ret_t rmw_subscription_count_matched_publishers(
@@ -982,13 +975,20 @@ extern "C" rmw_ret_t rmw_subscription_get_actual_qos(
     return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
   RMW_CHECK_ARGUMENT_FOR_NULL(qos, RMW_RET_INVALID_ARGUMENT);
 
-  // auto sub = static_cast<CddsSubscription *>(subscription->data);
-  // if (get_readwrite_qos(sub->enth, qos)) {
-  //   return RMW_RET_OK;
-  // }
-  return RMW_RET_ERROR;
+  auto stub_sub = static_cast<StubSubscription *>(subscription->data);
+
+  stub_sub->get_qos_policies(qos);
+
+  return RMW_RET_OK;
 }
 
+static void destroy_subscription(rmw_subscription_t * subscription)
+{
+  auto stub_sub = static_cast<StubSubscription *>(subscription->data);
+  delete stub_sub;
+  rmw_free(const_cast<char *>(subscription->topic_name));
+  rmw_subscription_free(subscription);
+}
 
 extern "C" rmw_ret_t rmw_destroy_subscription(rmw_node_t * node, rmw_subscription_t * subscription)
 {
@@ -1005,37 +1005,9 @@ extern "C" rmw_ret_t rmw_destroy_subscription(rmw_node_t * node, rmw_subscriptio
     stub_identifier,
     return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
-  rmw_ret_t ret = RMW_RET_OK;
-  rmw_error_state_t error_state;
-  rmw_error_string_t error_string;
-  {
-    auto common = &node->context->impl->common;
-    // const auto cddssub = static_cast<const CddsSubscription *>(subscription->data);
-    // std::lock_guard<std::mutex> guard(common->node_update_mutex);
-    // rmw_dds_common::msg::ParticipantEntitiesInfo msg =
-    //   common->graph_cache.dissociate_writer(
-    //   cddssub->gid, common->gid, node->name,
-    //   node->namespace_);
-    // ret = rmw_publish(common->pub, static_cast<void *>(&msg), nullptr);
-    if (RMW_RET_OK != ret) {
-      error_state = *rmw_get_error_state();
-      error_string = rmw_get_error_string();
-      rmw_reset_error();
-    }
-  }
+  destroy_subscription(subscription);
 
-  rmw_ret_t local_ret; // = destroy_subscription(subscription);
-  if (RMW_RET_OK != local_ret) {
-    if (RMW_RET_OK != ret) {
-      RMW_SAFE_FWRITE_TO_STDERR(error_string.str);
-      RMW_SAFE_FWRITE_TO_STDERR(" during '" RCUTILS_STRINGIFY(__function__) "'\n");
-    }
-    ret = local_ret;
-  } else if (RMW_RET_OK != ret) {
-    rmw_set_error_state(error_state.message, error_state.file, error_state.line_number);
-  }
-
-  return ret;
+  return RMW_RET_OK;
 }
 
 
