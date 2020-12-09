@@ -751,7 +751,7 @@ rmw_ret_t rmw_publisher_get_actual_qos(const rmw_publisher_t * publisher, rmw_qo
 
   auto stub_pub = static_cast<StubPublisher *>(publisher->data);
 
-  qos = stub_pub->get_qos_policies();
+  stub_pub->get_qos_policies(qos);
 
   return RMW_RET_OK;
 }

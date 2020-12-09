@@ -8,7 +8,6 @@ class StubNode
 public:
   StubNode()
   {
-    std::cout << "Create StubNode" << std::endl;
     graph_guard_condition = new rmw_guard_condition_t;
     node_guard_condition = new StubGuardCondition;
   }
