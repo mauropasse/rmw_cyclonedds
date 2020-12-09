@@ -57,6 +57,12 @@ const char * const stub_serialization_format = "cdr";
 
 static const char ROS_TOPIC_PREFIX[] = "rt";
 
+// /////////////////////////////////////////////////////////////////////////////////////////
+// ///////////                                                                   ///////////
+// ///////////    STATIC FUNCTIONS                                               ///////////
+// ///////////                                                                   ///////////
+// /////////////////////////////////////////////////////////////////////////////////////////
+
 static rmw_publisher_t * create_publisher(
   const rmw_qos_profile_t * qos_policies,
   const rmw_publisher_options_t * publisher_options,
@@ -130,9 +136,14 @@ static std::string mangle_topic_name(
   }
 }
 
+// /////////////////////////////////////////////////////////////////////////////////////////
+// ///////////                                                                   ///////////
+// ///////////    RMW IMPLEMENTATIONS                                            ///////////
+// ///////////                                                                   ///////////
+// /////////////////////////////////////////////////////////////////////////////////////////
+
 extern "C"
 {
-
 const char * rmw_get_implementation_identifier()
 {
   return stub_identifier;
@@ -1069,12 +1080,7 @@ rmw_ret_t rmw_publisher_event_init(
   (void)rmw_event;
   (void)publisher;
   (void)event_type;
-  // RET_WRONG_IMPLID(publisher);
-  // return init_rmw_event(
-  //   rmw_event,
-  //   publisher->implementation_identifier,
-  //   publisher->data,
-  //   event_type);
+
   return RMW_RET_UNSUPPORTED;
 }
 
@@ -1084,12 +1090,7 @@ rmw_ret_t rmw_subscription_event_init(
   (void)rmw_event;
   (void)subscription;
   (void)event_type;
-  // RET_WRONG_IMPLID(subscription);
-  // return init_rmw_event(
-  //   rmw_event,
-  //   subscription->implementation_identifier,
-  //   subscription->data,
-  //   event_type);
+
   return RMW_RET_UNSUPPORTED;
 }
 
@@ -1537,21 +1538,14 @@ rmw_ret_t rmw_get_publishers_info_by_topic(
   bool no_mangle,
   rmw_topic_endpoint_info_array_t * publishers_info)
 {
+  (void)node;
+  (void)allocator;
+  (void)topic_name;
   (void)no_mangle;
+  (void)publishers_info;
 
-  RMW_CHECK_ARGUMENT_FOR_NULL(node, RMW_RET_INVALID_ARGUMENT);
-  RMW_CHECK_ARGUMENT_FOR_NULL(topic_name, RMW_RET_INVALID_ARGUMENT);
-  RMW_CHECK_TYPE_IDENTIFIERS_MATCH(
-    node,
-    node->implementation_identifier,
-    stub_identifier,
-    return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-  RCUTILS_CHECK_ALLOCATOR_WITH_MSG(
-    allocator, "allocator argument is invalid", return RMW_RET_INVALID_ARGUMENT);
-  if (RMW_RET_OK != rmw_topic_endpoint_info_array_check_zero(publishers_info)) {
-    return RMW_RET_INVALID_ARGUMENT;
-  }
-  return RMW_RET_OK;
+  RCUTILS_LOG_ERROR_NAMED("rmw_node.cpp","rmw_get_publishers_info_by_topic not implemented");
+  return RMW_RET_UNSUPPORTED;
 }
 
 rmw_ret_t rmw_get_subscriptions_info_by_topic(
@@ -1561,21 +1555,13 @@ rmw_ret_t rmw_get_subscriptions_info_by_topic(
   bool no_mangle,
   rmw_topic_endpoint_info_array_t * subscriptions_info)
 {
+  (void)node;
+  (void)allocator;
+  (void)topic_name;
   (void)no_mangle;
+  (void)subscriptions_info;
 
-  RMW_CHECK_ARGUMENT_FOR_NULL(node, RMW_RET_INVALID_ARGUMENT);
-  RMW_CHECK_ARGUMENT_FOR_NULL(topic_name, RMW_RET_INVALID_ARGUMENT);
-  RMW_CHECK_TYPE_IDENTIFIERS_MATCH(
-    node,
-    node->implementation_identifier,
-    stub_identifier,
-    return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-  RCUTILS_CHECK_ALLOCATOR_WITH_MSG(
-    allocator, "allocator argument is invalid", return RMW_RET_INVALID_ARGUMENT);
-  if (RMW_RET_OK != rmw_topic_endpoint_info_array_check_zero(subscriptions_info)) {
-    return RMW_RET_INVALID_ARGUMENT;
-  }
-  return RMW_RET_OK;
+  RCUTILS_LOG_ERROR_NAMED("rmw_node.cpp","rmw_get_subscriptions_info_by_topic not implemented");
+  return RMW_RET_UNSUPPORTED;
 }
-
 }  // extern "C"
