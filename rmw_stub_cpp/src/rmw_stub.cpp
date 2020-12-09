@@ -1,4 +1,4 @@
-// Copyright 2019 ADLINK Technology Limited.
+// Copyright 2020 Open Source Robotics Foundation, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,30 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <cassert>
-#include <cstring>
-#include <mutex>
-#include <unordered_map>
-#include <unordered_set>
-#include <algorithm>
-#include <chrono>
-#include <iomanip>
-#include <map>
-#include <set>
-#include <functional>
-#include <atomic>
-#include <memory>
-#include <vector>
-#include <string>
-#include <tuple>
-#include <utility>
-#include <regex>
-#include <limits>
-
-#include "rcutils/filesystem.h"
-#include "rcutils/format_string.h"
-#include "rcutils/get_env.h"
-#include "rcutils/logging_macros.h"
 #include "rcutils/strdup.h"
 
 #include "rmw/allocators.h"
@@ -53,12 +29,8 @@
 #include "rmw/validate_node_name.h"
 
 #include "rcpputils/scope_exit.hpp"
-#include "rmw/impl/cpp/macros.hpp"
 #include "rmw/impl/cpp/key_value.hpp"
-
-#include "rmw/get_topic_endpoint_info.h"
-#include "rmw/incompatible_qos_events_statuses.h"
-#include "rmw/topic_endpoint_info_array.h"
+#include "rmw/impl/cpp/macros.hpp"
 
 #include "rmw_dds_common/context.hpp"
 #include "rmw_dds_common/graph_cache.hpp"
@@ -85,12 +57,88 @@ const char * const stub_serialization_format = "cdr";
 
 static const char ROS_TOPIC_PREFIX[] = "rt";
 
-extern "C" const char * rmw_get_implementation_identifier()
+static rmw_publisher_t * create_publisher(
+  const rmw_qos_profile_t * qos_policies,
+  const rmw_publisher_options_t * publisher_options,
+  const rosidl_message_type_support_t * type_supports,
+  const char * topic_name)
+{
+  (void)type_supports;
+
+  auto * stub_pub = new StubPublisher(qos_policies);
+
+  rmw_publisher_t * rmw_publisher = rmw_publisher_allocate();
+
+  rmw_publisher->implementation_identifier = stub_identifier;
+  rmw_publisher->data = stub_pub;
+  rmw_publisher->options = *publisher_options;
+  rmw_publisher->can_loan_messages = false;
+  rmw_publisher->topic_name = reinterpret_cast<char *>(rmw_allocate(strlen(topic_name) + 1));
+
+  memcpy(const_cast<char *>(rmw_publisher->topic_name), topic_name, strlen(topic_name) + 1);
+
+  return rmw_publisher;
+}
+
+static void destroy_publisher(rmw_publisher_t * publisher)
+{
+  auto stub_pub = static_cast<StubPublisher *>(publisher->data);
+  delete stub_pub;
+  rmw_free(const_cast<char *>(publisher->topic_name));
+  rmw_publisher_free(publisher);
+}
+
+static rmw_subscription_t * create_subscription(
+  const rmw_qos_profile_t * qos_policies,
+  const rmw_subscription_options_t * subscription_options,
+  const rosidl_message_type_support_t * type_supports,
+  const char * topic_name)
+{
+  (void)type_supports;
+
+  auto * stub_sub = new StubSubscription(qos_policies);
+
+  rmw_subscription_t * rmw_subscription = rmw_subscription_allocate();
+
+  rmw_subscription->implementation_identifier = stub_identifier;
+  rmw_subscription->data = stub_sub;
+  rmw_subscription->options = *subscription_options;
+  rmw_subscription->can_loan_messages = false;
+  rmw_subscription->topic_name = reinterpret_cast<char *>(rmw_allocate(strlen(topic_name) + 1));
+
+  memcpy(const_cast<char *>(rmw_subscription->topic_name), topic_name, strlen(topic_name) + 1);
+
+  return rmw_subscription;
+}
+
+static void destroy_subscription(rmw_subscription_t * subscription)
+{
+  auto stub_sub = static_cast<StubSubscription *>(subscription->data);
+  delete stub_sub;
+  rmw_free(const_cast<char *>(subscription->topic_name));
+  rmw_subscription_free(subscription);
+}
+
+static std::string mangle_topic_name(
+  const char * prefix, const char * topic_name, const char * suffix,
+  bool avoid_ros_namespace_conventions)
+{
+  if (avoid_ros_namespace_conventions) {
+    return std::string(topic_name) + std::string(suffix);
+  } else {
+    return std::string(prefix) + std::string(topic_name) + std::string(suffix);
+  }
+}
+
+extern "C"
+{
+
+const char * rmw_get_implementation_identifier()
 {
   return stub_identifier;
 }
 
-extern "C" rmw_ret_t rmw_init_options_init(
+rmw_ret_t rmw_init_options_init(
   rmw_init_options_t * init_options,
   rcutils_allocator_t allocator)
 {
@@ -111,7 +159,7 @@ extern "C" rmw_ret_t rmw_init_options_init(
   return RMW_RET_OK;
 }
 
-extern "C" rmw_ret_t rmw_init_options_copy(const rmw_init_options_t * src, rmw_init_options_t * dst)
+rmw_ret_t rmw_init_options_copy(const rmw_init_options_t * src, rmw_init_options_t * dst)
 {
   RMW_CHECK_ARGUMENT_FOR_NULL(src, RMW_RET_INVALID_ARGUMENT);
   RMW_CHECK_ARGUMENT_FOR_NULL(dst, RMW_RET_INVALID_ARGUMENT);
@@ -146,7 +194,7 @@ extern "C" rmw_ret_t rmw_init_options_copy(const rmw_init_options_t * src, rmw_i
   return RMW_RET_OK;
 }
 
-extern "C" rmw_ret_t rmw_init_options_fini(rmw_init_options_t * init_options)
+rmw_ret_t rmw_init_options_fini(rmw_init_options_t * init_options)
 {
   RMW_CHECK_ARGUMENT_FOR_NULL(init_options, RMW_RET_INVALID_ARGUMENT);
 
@@ -171,7 +219,7 @@ extern "C" rmw_ret_t rmw_init_options_fini(rmw_init_options_t * init_options)
   return ret;
 }
 
-extern "C" rmw_ret_t rmw_shutdown(rmw_context_t * context)
+rmw_ret_t rmw_shutdown(rmw_context_t * context)
 {
   RMW_CHECK_ARGUMENT_FOR_NULL(context, RMW_RET_INVALID_ARGUMENT);
 
@@ -191,7 +239,7 @@ extern "C" rmw_ret_t rmw_shutdown(rmw_context_t * context)
   return RMW_RET_OK;
 }
 
-extern "C" rmw_ret_t rmw_context_fini(rmw_context_t * context)
+rmw_ret_t rmw_context_fini(rmw_context_t * context)
 {
   RMW_CHECK_ARGUMENT_FOR_NULL(context, RMW_RET_INVALID_ARGUMENT);
   RMW_CHECK_FOR_NULL_WITH_MSG(
@@ -213,19 +261,21 @@ extern "C" rmw_ret_t rmw_context_fini(rmw_context_t * context)
   return ret;
 }
 
-extern "C" const char * rmw_get_serialization_format()
+const char * rmw_get_serialization_format()
 {
   return stub_serialization_format;
 }
 
 
-extern "C" rmw_ret_t rmw_set_log_severity(rmw_log_severity_t severity)
+rmw_ret_t rmw_set_log_severity(rmw_log_severity_t severity)
 {
+  (void)severity;
+
   RCUTILS_LOG_ERROR_NAMED("rmw_stub.cpp","rmw_set_log_severity not supported");
   return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_ret_t rmw_service_set_listener_callback(
+rmw_ret_t rmw_service_set_listener_callback(
   const void * user_data,
   rmw_listener_cb_t callback,
   const void * service_handle,
@@ -235,7 +285,7 @@ extern "C" rmw_ret_t rmw_service_set_listener_callback(
   (void)callback;
   (void)service_handle;
   (void)rmw_service;
-  // auto service = static_cast<CddsService *>(rmw_service->data);
+  // auto service = static_cast<StubService *>(rmw_service->data);
   // service->setCallback(user_data, callback, service_handle);
   RCUTILS_LOG_ERROR_NAMED(
     "rmw_stub.cpp",
@@ -243,7 +293,7 @@ extern "C" rmw_ret_t rmw_service_set_listener_callback(
   return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_ret_t rmw_client_set_listener_callback(
+rmw_ret_t rmw_client_set_listener_callback(
   const void * user_data,
   rmw_listener_cb_t callback,
   const void * client_handle,
@@ -253,7 +303,7 @@ extern "C" rmw_ret_t rmw_client_set_listener_callback(
   (void)callback;
   (void)client_handle;
   (void)rmw_client;
-  // auto client = static_cast<CddsClient *>(rmw_client->data);
+  // auto client = static_cast<StubClient *>(rmw_client->data);
   // client->setCallback(user_data, callback, client_handle);
   RCUTILS_LOG_ERROR_NAMED(
     "rmw_stub.cpp",
@@ -261,7 +311,7 @@ extern "C" rmw_ret_t rmw_client_set_listener_callback(
   return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_ret_t rmw_event_set_listener_callback(
+rmw_ret_t rmw_event_set_listener_callback(
   const void * user_data,
   rmw_listener_cb_t callback,
   const void * waitable_handle,
@@ -273,7 +323,7 @@ extern "C" rmw_ret_t rmw_event_set_listener_callback(
   (void)waitable_handle;
   (void)rmw_event;
   (void)use_previous_events;
-  // auto event = static_cast<CddsEvent *>(rmw_event->data);
+  // auto event = static_cast<StubEvent *>(rmw_event->data);
   // event->setCallback(user_data, callback,
   //                              waitable_handle, use_previous_events);
   RCUTILS_LOG_ERROR_NAMED(
@@ -285,6 +335,9 @@ extern "C" rmw_ret_t rmw_event_set_listener_callback(
 rmw_ret_t
 rmw_context_impl_t::init(rmw_init_options_t * options, size_t domain_id)
 {
+  (void)options;
+  (void)domain_id;
+
   std::lock_guard<std::mutex> guard(initialization_mutex);
   if (0u != this->node_count) {
     // initialization has already been done
@@ -292,18 +345,8 @@ rmw_context_impl_t::init(rmw_init_options_t * options, size_t domain_id)
     return RMW_RET_OK;
   }
 
-  // Initialization to do once:
-  // ..nothing yet
-
-  ++this->node_count;
+  this->node_count++;
   return RMW_RET_OK;
-}
-
-void
-rmw_context_impl_t::clean_up()
-{
-  //discovery_thread_stop(common);
-  //check_destroy_domain(domain_id);
 }
 
 rmw_ret_t
@@ -314,11 +357,10 @@ rmw_context_impl_t::fini()
     // destruction shouldn't happen yet
     return RMW_RET_OK;
   }
-  this->clean_up();
   return RMW_RET_OK;
 }
 
-extern "C" rmw_ret_t rmw_init(const rmw_init_options_t * options, rmw_context_t * context)
+rmw_ret_t rmw_init(const rmw_init_options_t * options, rmw_context_t * context)
 {
   rmw_ret_t ret;
 
@@ -381,17 +423,15 @@ extern "C" rmw_ret_t rmw_init(const rmw_init_options_t * options, rmw_context_t 
 // ///////////                                                                   ///////////
 // /////////////////////////////////////////////////////////////////////////////////////////
 
-extern "C" rmw_node_t * rmw_create_node(
+rmw_node_t * rmw_create_node(
   rmw_context_t * context, const char * name, const char * namespace_)
 {
   RMW_CHECK_ARGUMENT_FOR_NULL(context, nullptr);
-
   RMW_CHECK_TYPE_IDENTIFIERS_MATCH(
     context,
     context->implementation_identifier,
     stub_identifier,
     return nullptr);
-
   RMW_CHECK_FOR_NULL_WITH_MSG(
     context->impl,
     "expected initialized context",
@@ -447,7 +487,7 @@ extern "C" rmw_node_t * rmw_create_node(
   return node;
 }
 
-extern "C" rmw_ret_t rmw_destroy_node(rmw_node_t * node)
+rmw_ret_t rmw_destroy_node(rmw_node_t * node)
 {
   RMW_CHECK_ARGUMENT_FOR_NULL(node, RMW_RET_INVALID_ARGUMENT);
   RMW_CHECK_TYPE_IDENTIFIERS_MATCH(
@@ -465,11 +505,11 @@ extern "C" rmw_ret_t rmw_destroy_node(rmw_node_t * node)
   allocator.deallocate(node, allocator.state);
 
   delete stub_node;
-  // context->impl->fini();
+  //context->impl->fini();
   return RMW_RET_OK;
 }
 
-extern "C" const rmw_guard_condition_t * rmw_node_get_graph_guard_condition(const rmw_node_t * node)
+const rmw_guard_condition_t * rmw_node_get_graph_guard_condition(const rmw_node_t * node)
 {
   auto stub_node = static_cast<StubNode *>(node->data);
 
@@ -482,7 +522,7 @@ extern "C" const rmw_guard_condition_t * rmw_node_get_graph_guard_condition(cons
 // ///////////                                                                   ///////////
 // /////////////////////////////////////////////////////////////////////////////////////////
 
-extern "C" rmw_ret_t rmw_get_serialized_message_size(
+rmw_ret_t rmw_get_serialized_message_size(
   const rosidl_message_type_support_t * type_support,
   const rosidl_runtime_c__Sequence__bound * message_bounds, size_t * size)
 {
@@ -490,25 +530,31 @@ extern "C" rmw_ret_t rmw_get_serialized_message_size(
   static_cast<void>(message_bounds);
   static_cast<void>(size);
 
-  RMW_SET_ERROR_MSG("rmw_get_serialized_message_size: unimplemented");
+  RMW_SET_ERROR_MSG("rmw_get_serialized_message_size: not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_ret_t rmw_serialize(
+rmw_ret_t rmw_serialize(
   const void * ros_message,
   const rosidl_message_type_support_t * type_support,
   rmw_serialized_message_t * serialized_message)
 {
-  RMW_SET_ERROR_MSG("rmw_serialize: unimplemented");
+  (void)ros_message;
+  (void)type_support;
+  (void)serialized_message;
+  RMW_SET_ERROR_MSG("rmw_serialize: not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_ret_t rmw_deserialize(
+rmw_ret_t rmw_deserialize(
   const rmw_serialized_message_t * serialized_message,
   const rosidl_message_type_support_t * type_support,
   void * ros_message)
 {
-  RMW_SET_ERROR_MSG("rmw_deserialize: unimplemented");
+  (void)serialized_message;
+  (void)type_support;
+  (void)ros_message;
+  RMW_SET_ERROR_MSG("rmw_deserialize: not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
@@ -518,117 +564,83 @@ extern "C" rmw_ret_t rmw_deserialize(
 // ///////////                                                                   ///////////
 // /////////////////////////////////////////////////////////////////////////////////////////
 
-extern "C" rmw_ret_t rmw_publish(
+rmw_ret_t rmw_publish(
   const rmw_publisher_t * publisher, const void * ros_message,
   rmw_publisher_allocation_t * allocation)
 {
-  static_cast<void>(allocation);    // unused
-  RMW_CHECK_FOR_NULL_WITH_MSG(
-    publisher, "publisher handle is null",
-    return RMW_RET_INVALID_ARGUMENT);
-  RMW_CHECK_TYPE_IDENTIFIERS_MATCH(
-    publisher, publisher->implementation_identifier, stub_identifier,
-    return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-  RMW_CHECK_FOR_NULL_WITH_MSG(
-    ros_message, "ros message handle is null",
-    return RMW_RET_INVALID_ARGUMENT);
-  // auto pub = static_cast<CddsPublisher *>(publisher->data);
-  // assert(pub);
-  // if (dds_write(pub->enth, ros_message) >= 0) {
-  //   return RMW_RET_OK;
-  // } else {
-  //   RMW_SET_ERROR_MSG("failed to publish data");
-  //   return RMW_RET_ERROR;
-  // }
-  RMW_SET_ERROR_MSG("rmw_publish not implemented for rmw_stub_cpp");
+  (void)publisher;
+  (void)ros_message;
+  (void)allocation;
+
+  RMW_SET_ERROR_MSG("rmw_publish not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_ret_t rmw_publish_serialized_message(
+rmw_ret_t rmw_publish_serialized_message(
   const rmw_publisher_t * publisher,
   const rmw_serialized_message_t * serialized_message, rmw_publisher_allocation_t * allocation)
 {
-  RMW_SET_ERROR_MSG("rmw_publish_serialized_message: unimplemented");
+  (void)publisher;
+  (void)serialized_message;
+  (void)allocation;
 
+  RMW_SET_ERROR_MSG("rmw_publish_serialized_message: not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_ret_t rmw_publish_loaned_message(
+rmw_ret_t rmw_publish_loaned_message(
   const rmw_publisher_t * publisher,
   void * ros_message,
   rmw_publisher_allocation_t * allocation)
 {
-  (void) publisher;
-  (void) ros_message;
-  (void) allocation;
+  (void)publisher;
+  (void)ros_message;
+  (void)allocation;
 
-  RMW_SET_ERROR_MSG("rmw_publish_loaned_message not implemented for rmw_stub_cpp");
+  RMW_SET_ERROR_MSG("rmw_publish_loaned_message not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_ret_t rmw_init_publisher_allocation(
+rmw_ret_t rmw_init_publisher_allocation(
   const rosidl_message_type_support_t * type_support,
   const rosidl_runtime_c__Sequence__bound * message_bounds, rmw_publisher_allocation_t * allocation)
 {
-  static_cast<void>(type_support);
-  static_cast<void>(message_bounds);
-  static_cast<void>(allocation);
-  RMW_SET_ERROR_MSG("rmw_init_publisher_allocation: unimplemented");
+  (void)type_support;
+  (void)message_bounds;
+  (void)allocation;
+
+  RMW_SET_ERROR_MSG("rmw_init_publisher_allocation: not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_ret_t rmw_fini_publisher_allocation(rmw_publisher_allocation_t * allocation)
+rmw_ret_t rmw_fini_publisher_allocation(rmw_publisher_allocation_t * allocation)
 {
-  static_cast<void>(allocation);
-  RMW_SET_ERROR_MSG("rmw_fini_publisher_allocation: unimplemented");
+  (void)allocation;
+  RMW_SET_ERROR_MSG("rmw_fini_publisher_allocation: not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
-static rmw_publisher_t * create_publisher(
-  const rmw_qos_profile_t * qos_policies,
-  const rmw_publisher_options_t * publisher_options,
-  const rosidl_message_type_support_t * type_supports,
-  const char * topic_name)
-{
-  auto * pub = new StubPublisher(qos_policies, type_supports, topic_name);
-
-  rmw_publisher_t * rmw_publisher = rmw_publisher_allocate();
-
-  rmw_publisher->implementation_identifier = stub_identifier;
-  rmw_publisher->data = pub;
-  rmw_publisher->options = *publisher_options;
-  rmw_publisher->can_loan_messages = false;
-  rmw_publisher->topic_name = reinterpret_cast<char *>(rmw_allocate(strlen(topic_name) + 1));
-
-  memcpy(const_cast<char *>(rmw_publisher->topic_name), topic_name, strlen(topic_name) + 1);
-
-  return rmw_publisher;
-}
-
-extern "C" rmw_publisher_t * rmw_create_publisher(
+rmw_publisher_t * rmw_create_publisher(
   const rmw_node_t * node, const rosidl_message_type_support_t * type_supports,
   const char * topic_name, const rmw_qos_profile_t * qos_policies,
   const rmw_publisher_options_t * publisher_options
 )
 {
   RMW_CHECK_ARGUMENT_FOR_NULL(node, nullptr);
-
+  RMW_CHECK_ARGUMENT_FOR_NULL(type_supports, nullptr);
+  RMW_CHECK_ARGUMENT_FOR_NULL(topic_name, nullptr);
+  RMW_CHECK_ARGUMENT_FOR_NULL(qos_policies, nullptr);
+  RMW_CHECK_ARGUMENT_FOR_NULL(publisher_options, nullptr);
   RMW_CHECK_TYPE_IDENTIFIERS_MATCH(
     node,
     node->implementation_identifier,
     stub_identifier,
     return nullptr);
 
-  RMW_CHECK_ARGUMENT_FOR_NULL(type_supports, nullptr);
-
-  RMW_CHECK_ARGUMENT_FOR_NULL(topic_name, nullptr);
-
   if (0 == strlen(topic_name)) {
     RMW_SET_ERROR_MSG("topic_name argument is an empty string");
     return nullptr;
   }
-
-  RMW_CHECK_ARGUMENT_FOR_NULL(qos_policies, nullptr);
 
   if (!qos_policies->avoid_ros_namespace_conventions) {
     int validation_result = RMW_TOPIC_VALID;
@@ -643,7 +655,6 @@ extern "C" rmw_publisher_t * rmw_create_publisher(
     }
   }
 
-  RMW_CHECK_ARGUMENT_FOR_NULL(publisher_options, nullptr);
 
   rmw_publisher_t * stub_pub;
 
@@ -660,15 +671,15 @@ extern "C" rmw_publisher_t * rmw_create_publisher(
   return stub_pub;
 }
 
-extern "C" rmw_ret_t rmw_get_gid_for_publisher(const rmw_publisher_t * publisher, rmw_gid_t * gid)
+rmw_ret_t rmw_get_gid_for_publisher(const rmw_publisher_t * publisher, rmw_gid_t * gid)
 {
   RMW_CHECK_ARGUMENT_FOR_NULL(publisher, RMW_RET_INVALID_ARGUMENT);
+  RMW_CHECK_ARGUMENT_FOR_NULL(gid, RMW_RET_INVALID_ARGUMENT);
   RMW_CHECK_TYPE_IDENTIFIERS_MATCH(
     publisher,
     publisher->implementation_identifier,
     stub_identifier,
     return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-  RMW_CHECK_ARGUMENT_FOR_NULL(gid, RMW_RET_INVALID_ARGUMENT);
 
   gid->implementation_identifier = stub_identifier;
 
@@ -676,78 +687,70 @@ extern "C" rmw_ret_t rmw_get_gid_for_publisher(const rmw_publisher_t * publisher
 
   auto stub_pub = static_cast<const StubPublisher *>(publisher->data);
 
-  assert(sizeof(stub_pub->pubiid) <= sizeof(gid->data));
+  assert(sizeof(stub_pub->get_pub_id()) <= sizeof(gid->data));
 
-  memcpy(gid->data, &stub_pub->pubiid, sizeof(stub_pub->pubiid));
+  memcpy(gid->data, stub_pub->get_pub_id_ptr(), sizeof(stub_pub->get_pub_id()));
 
   return RMW_RET_OK;
 }
 
-extern "C" rmw_ret_t rmw_compare_gids_equal(
+rmw_ret_t rmw_compare_gids_equal(
   const rmw_gid_t * gid1, const rmw_gid_t * gid2,
   bool * result)
 {
   RMW_CHECK_ARGUMENT_FOR_NULL(gid1, RMW_RET_INVALID_ARGUMENT);
+  RMW_CHECK_ARGUMENT_FOR_NULL(gid2, RMW_RET_INVALID_ARGUMENT);
+  RMW_CHECK_ARGUMENT_FOR_NULL(result, RMW_RET_INVALID_ARGUMENT);
   RMW_CHECK_TYPE_IDENTIFIERS_MATCH(
     gid1,
     gid1->implementation_identifier,
     stub_identifier,
     return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-  RMW_CHECK_ARGUMENT_FOR_NULL(gid2, RMW_RET_INVALID_ARGUMENT);
   RMW_CHECK_TYPE_IDENTIFIERS_MATCH(
     gid2,
     gid2->implementation_identifier,
     stub_identifier,
     return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-  RMW_CHECK_ARGUMENT_FOR_NULL(result, RMW_RET_INVALID_ARGUMENT);
   /* alignment is potentially lost because of the translation to an array of bytes, so use
      memcmp instead of a simple integer comparison */
   *result = memcmp(gid1->data, gid2->data, sizeof(gid1->data)) == 0;
   return RMW_RET_OK;
 }
 
-extern "C" rmw_ret_t rmw_publisher_count_matched_subscriptions(
+rmw_ret_t rmw_publisher_count_matched_subscriptions(
   const rmw_publisher_t * publisher,
   size_t * subscription_count)
 {
   RMW_CHECK_ARGUMENT_FOR_NULL(publisher, RMW_RET_INVALID_ARGUMENT);
+  RMW_CHECK_ARGUMENT_FOR_NULL(subscription_count, RMW_RET_INVALID_ARGUMENT);
   RMW_CHECK_TYPE_IDENTIFIERS_MATCH(
     publisher,
     publisher->implementation_identifier,
     stub_identifier,
     return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-  RMW_CHECK_ARGUMENT_FOR_NULL(subscription_count, RMW_RET_INVALID_ARGUMENT);
 
-  auto stub_pub = static_cast<StubPublisher *>(publisher->data);
-
-  *subscription_count = stub_pub->get_subscription_count();
+  *subscription_count = 0;
 
   return RMW_RET_OK;
 }
 
 rmw_ret_t rmw_publisher_assert_liveliness(const rmw_publisher_t * publisher)
 {
-  RET_NULL(publisher);
-  // // RET_WRONG_IMPLID(publisher);
-  // auto pub = static_cast<CddsPublisher *>(publisher->data);
-  // if (dds_assert_liveliness(pub->enth) < 0) {
-  //   return RMW_RET_ERROR;
-  // }
-  RCUTILS_LOG_ERROR_NAMED(
-    "rmw_stub.cpp",
-    "rmw_publisher_assert_liveliness not supported (yet)");
+  (void)publisher;
+
+  RMW_SET_ERROR_MSG("rmw_publisher_assert_liveliness not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
 rmw_ret_t rmw_publisher_get_actual_qos(const rmw_publisher_t * publisher, rmw_qos_profile_t * qos)
 {
   RMW_CHECK_ARGUMENT_FOR_NULL(publisher, RMW_RET_INVALID_ARGUMENT);
+  RMW_CHECK_ARGUMENT_FOR_NULL(qos, RMW_RET_INVALID_ARGUMENT);
   RMW_CHECK_TYPE_IDENTIFIERS_MATCH(
     publisher,
     publisher->implementation_identifier,
     stub_identifier,
     return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-  RMW_CHECK_ARGUMENT_FOR_NULL(qos, RMW_RET_INVALID_ARGUMENT);
 
   auto stub_pub = static_cast<StubPublisher *>(publisher->data);
 
@@ -756,7 +759,7 @@ rmw_ret_t rmw_publisher_get_actual_qos(const rmw_publisher_t * publisher, rmw_qo
   return RMW_RET_OK;
 }
 
-extern "C" rmw_ret_t rmw_borrow_loaned_message(
+rmw_ret_t rmw_borrow_loaned_message(
   const rmw_publisher_t * publisher,
   const rosidl_message_type_support_t * type_support,
   void ** ros_message)
@@ -764,33 +767,23 @@ extern "C" rmw_ret_t rmw_borrow_loaned_message(
   (void) publisher;
   (void) type_support;
   (void) ros_message;
-  RMW_SET_ERROR_MSG("rmw_borrow_loaned_message not implemented for rmw_stub_cpp");
-  RCUTILS_LOG_ERROR_NAMED(
-    "rmw_stub.cpp",
-    "rmw_borrow_loaned_message not supported (yet)");
+
+  RMW_SET_ERROR_MSG("rmw_borrow_loaned_message not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_ret_t rmw_return_loaned_message_from_publisher(
+rmw_ret_t rmw_return_loaned_message_from_publisher(
   const rmw_publisher_t * publisher,
   void * loaned_message)
 {
   (void) publisher;
   (void) loaned_message;
   RMW_SET_ERROR_MSG(
-    "rmw_return_loaned_message_from_publisher not implemented for rmw_stub_cpp");
+    "rmw_return_loaned_message_from_publisher not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
-static void destroy_publisher(rmw_publisher_t * publisher)
-{
-  auto stub_pub = static_cast<StubPublisher *>(publisher->data);
-  delete stub_pub;
-  rmw_free(const_cast<char *>(publisher->topic_name));
-  rmw_publisher_free(publisher);
-}
-
-extern "C" rmw_ret_t rmw_destroy_publisher(rmw_node_t * node, rmw_publisher_t * publisher)
+rmw_ret_t rmw_destroy_publisher(rmw_node_t * node, rmw_publisher_t * publisher)
 {
   RMW_CHECK_ARGUMENT_FOR_NULL(node, RMW_RET_INVALID_ARGUMENT);
   RMW_CHECK_ARGUMENT_FOR_NULL(publisher, RMW_RET_INVALID_ARGUMENT);
@@ -817,64 +810,48 @@ extern "C" rmw_ret_t rmw_destroy_publisher(rmw_node_t * node, rmw_publisher_t * 
 // ///////////                                                                   ///////////
 // /////////////////////////////////////////////////////////////////////////////////////////
 
-extern "C" rmw_ret_t rmw_init_subscription_allocation(
+rmw_ret_t rmw_init_subscription_allocation(
   const rosidl_message_type_support_t * type_support,
   const rosidl_runtime_c__Sequence__bound * message_bounds,
   rmw_subscription_allocation_t * allocation)
 {
-  static_cast<void>(type_support);
-  static_cast<void>(message_bounds);
-  static_cast<void>(allocation);
-  RMW_SET_ERROR_MSG("rmw_init_subscription_allocation: unimplemented");
+  (void)type_support;
+  (void)message_bounds;
+  (void)allocation;
+
+  RMW_SET_ERROR_MSG("rmw_init_subscription_allocation: not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_ret_t rmw_fini_subscription_allocation(rmw_subscription_allocation_t * allocation)
+rmw_ret_t rmw_fini_subscription_allocation(rmw_subscription_allocation_t * allocation)
 {
-  static_cast<void>(allocation);
-  RMW_SET_ERROR_MSG("rmw_fini_subscription_allocation: unimplemented");
+  (void)allocation;
+
+  RMW_SET_ERROR_MSG("rmw_fini_subscription_allocation: not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
-static rmw_subscription_t * create_subscription(
-  const rmw_qos_profile_t * qos_policies,
-  const rmw_subscription_options_t * subscription_options,
-  const rosidl_message_type_support_t * type_supports,
-  const char * topic_name)
-{
-  auto * sub = new StubSubscription(qos_policies, subscription_options, type_supports, topic_name);
-
-  rmw_subscription_t * rmw_subscription = rmw_subscription_allocate();
-
-  rmw_subscription->implementation_identifier = stub_identifier;
-  rmw_subscription->data = sub;
-  rmw_subscription->options = *subscription_options;
-  rmw_subscription->can_loan_messages = false;
-  rmw_subscription->topic_name = reinterpret_cast<char *>(rmw_allocate(strlen(topic_name) + 1));
-
-  memcpy(const_cast<char *>(rmw_subscription->topic_name), topic_name, strlen(topic_name) + 1);
-
-  return rmw_subscription;
-}
-
-extern "C" rmw_subscription_t * rmw_create_subscription(
+rmw_subscription_t * rmw_create_subscription(
   const rmw_node_t * node, const rosidl_message_type_support_t * type_supports,
   const char * topic_name, const rmw_qos_profile_t * qos_policies,
   const rmw_subscription_options_t * subscription_options)
 {
   RMW_CHECK_ARGUMENT_FOR_NULL(node, nullptr);
+  RMW_CHECK_ARGUMENT_FOR_NULL(type_supports, nullptr);
+  RMW_CHECK_ARGUMENT_FOR_NULL(subscription_options, nullptr);
+  RMW_CHECK_ARGUMENT_FOR_NULL(topic_name, nullptr);
+  RMW_CHECK_ARGUMENT_FOR_NULL(qos_policies, nullptr);
   RMW_CHECK_TYPE_IDENTIFIERS_MATCH(
     node,
     node->implementation_identifier,
     stub_identifier,
     return nullptr);
-  RMW_CHECK_ARGUMENT_FOR_NULL(type_supports, nullptr);
-  RMW_CHECK_ARGUMENT_FOR_NULL(topic_name, nullptr);
+
   if (0 == strlen(topic_name)) {
     RMW_SET_ERROR_MSG("topic_name argument is an empty string");
     return nullptr;
   }
-  RMW_CHECK_ARGUMENT_FOR_NULL(qos_policies, nullptr);
+
   if (!qos_policies->avoid_ros_namespace_conventions) {
     int validation_result = RMW_TOPIC_VALID;
     rmw_ret_t ret = rmw_validate_full_topic_name(topic_name, &validation_result, nullptr);
@@ -887,7 +864,6 @@ extern "C" rmw_subscription_t * rmw_create_subscription(
       return nullptr;
     }
   }
-  RMW_CHECK_ARGUMENT_FOR_NULL(subscription_options, nullptr);
 
   rmw_subscription_t * stub_sub;
 
@@ -904,7 +880,7 @@ extern "C" rmw_subscription_t * rmw_create_subscription(
   return stub_sub;
 }
 
-extern "C" rmw_ret_t rmw_subscription_set_listener_callback(
+rmw_ret_t rmw_subscription_set_listener_callback(
   const void * user_data,
   rmw_listener_cb_t callback,
   const void * subscription_handle,
@@ -915,40 +891,27 @@ extern "C" rmw_ret_t rmw_subscription_set_listener_callback(
   return RMW_RET_OK;
 }
 
-extern "C" rmw_ret_t rmw_subscription_count_matched_publishers(
+rmw_ret_t rmw_subscription_count_matched_publishers(
   const rmw_subscription_t * subscription, size_t * publisher_count)
 {
-  RMW_CHECK_ARGUMENT_FOR_NULL(subscription, RMW_RET_INVALID_ARGUMENT);
-  RMW_CHECK_TYPE_IDENTIFIERS_MATCH(
-    subscription,
-    subscription->implementation_identifier,
-    stub_identifier,
-    return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-  RMW_CHECK_ARGUMENT_FOR_NULL(publisher_count, RMW_RET_INVALID_ARGUMENT);
+  (void)subscription;
+  (void)publisher_count;
 
-  // auto sub = static_cast<CddsSubscription *>(subscription->data);
-  // dds_subscription_matched_status_t status;
-  // if (dds_get_subscription_matched_status(sub->enth, &status) < 0) {
-  //   return RMW_RET_ERROR;
-  // }
-  // *publisher_count = status.current_count;
-  RCUTILS_LOG_ERROR_NAMED(
-    "rmw_stub.cpp",
-    "not supported (yet)");
+  RMW_SET_ERROR_MSG("rmw_subscription_count_matched_publishers: not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_ret_t rmw_subscription_get_actual_qos(
+rmw_ret_t rmw_subscription_get_actual_qos(
   const rmw_subscription_t * subscription,
   rmw_qos_profile_t * qos)
 {
   RMW_CHECK_ARGUMENT_FOR_NULL(subscription, RMW_RET_INVALID_ARGUMENT);
+  RMW_CHECK_ARGUMENT_FOR_NULL(qos, RMW_RET_INVALID_ARGUMENT);
   RMW_CHECK_TYPE_IDENTIFIERS_MATCH(
     subscription,
     subscription->implementation_identifier,
     stub_identifier,
     return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-  RMW_CHECK_ARGUMENT_FOR_NULL(qos, RMW_RET_INVALID_ARGUMENT);
 
   auto stub_sub = static_cast<StubSubscription *>(subscription->data);
 
@@ -957,15 +920,7 @@ extern "C" rmw_ret_t rmw_subscription_get_actual_qos(
   return RMW_RET_OK;
 }
 
-static void destroy_subscription(rmw_subscription_t * subscription)
-{
-  auto stub_sub = static_cast<StubSubscription *>(subscription->data);
-  delete stub_sub;
-  rmw_free(const_cast<char *>(subscription->topic_name));
-  rmw_subscription_free(subscription);
-}
-
-extern "C" rmw_ret_t rmw_destroy_subscription(rmw_node_t * node, rmw_subscription_t * subscription)
+rmw_ret_t rmw_destroy_subscription(rmw_node_t * node, rmw_subscription_t * subscription)
 {
   RMW_CHECK_ARGUMENT_FOR_NULL(node, RMW_RET_INVALID_ARGUMENT);
   RMW_CHECK_ARGUMENT_FOR_NULL(subscription, RMW_RET_INVALID_ARGUMENT);
@@ -985,101 +940,120 @@ extern "C" rmw_ret_t rmw_destroy_subscription(rmw_node_t * node, rmw_subscriptio
   return RMW_RET_OK;
 }
 
-
-extern "C" rmw_ret_t rmw_take(
+rmw_ret_t rmw_take(
   const rmw_subscription_t * subscription, void * ros_message,
   bool * taken, rmw_subscription_allocation_t * allocation)
 {
-  static_cast<void>(allocation);
-  // return rmw_take_int(subscription, ros_message, taken, nullptr);
+  (void)subscription;
+  (void)ros_message;
+  (void)taken;
+  (void)allocation;
+
+  RMW_SET_ERROR_MSG("rmw_take: not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_ret_t rmw_take_with_info(
+rmw_ret_t rmw_take_with_info(
   const rmw_subscription_t * subscription, void * ros_message,
   bool * taken, rmw_message_info_t * message_info,
   rmw_subscription_allocation_t * allocation)
 {
-  static_cast<void>(allocation);
-  RMW_CHECK_ARGUMENT_FOR_NULL(message_info, RMW_RET_INVALID_ARGUMENT);
-  // return rmw_take_int(subscription, ros_message, taken, message_info);
+  (void)subscription;
+  (void)ros_message;
+  (void)taken;
+  (void)message_info;
+  (void)allocation;
+
+  RMW_SET_ERROR_MSG("rmw_take_with_info: not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_ret_t rmw_take_sequence(
+rmw_ret_t rmw_take_sequence(
   const rmw_subscription_t * subscription, size_t count,
   rmw_message_sequence_t * message_sequence,
   rmw_message_info_sequence_t * message_info_sequence,
   size_t * taken, rmw_subscription_allocation_t * allocation)
 {
-  static_cast<void>(allocation);
-  // return rmw_take_seq(subscription, count, message_sequence, message_info_sequence, taken);
+  (void)subscription;
+  (void)count;
+  (void)message_sequence;
+  (void)message_info_sequence;
+  (void)taken;
+  (void)allocation;
+
+  RMW_SET_ERROR_MSG("rmw_take_sequence: not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_ret_t rmw_take_serialized_message(
+rmw_ret_t rmw_take_serialized_message(
   const rmw_subscription_t * subscription,
   rmw_serialized_message_t * serialized_message,
   bool * taken,
   rmw_subscription_allocation_t * allocation)
 {
-  static_cast<void>(allocation);
-  // return rmw_take_ser_int(subscription, serialized_message, taken, nullptr);
+  (void)subscription;
+  (void)serialized_message;
+  (void)taken;
+  (void)allocation;
+
+  RMW_SET_ERROR_MSG("rmw_take_serialized_message: not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_ret_t rmw_take_serialized_message_with_info(
+rmw_ret_t rmw_take_serialized_message_with_info(
   const rmw_subscription_t * subscription,
   rmw_serialized_message_t * serialized_message, bool * taken, rmw_message_info_t * message_info,
   rmw_subscription_allocation_t * allocation)
 {
-  static_cast<void>(allocation);
+  (void)subscription;
+  (void)serialized_message;
+  (void)message_info;
+  (void)taken;
+  (void)allocation;
 
-  RMW_CHECK_ARGUMENT_FOR_NULL(
-    message_info, RMW_RET_INVALID_ARGUMENT);
-
-  // return rmw_take_ser_int(subscription, serialized_message, taken, message_info);
+  RMW_SET_ERROR_MSG("rmw_take_serialized_message_with_info: not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_ret_t rmw_take_loaned_message(
+rmw_ret_t rmw_take_loaned_message(
   const rmw_subscription_t * subscription,
   void ** loaned_message,
   bool * taken,
   rmw_subscription_allocation_t * allocation)
 {
-  (void) subscription;
-  (void) loaned_message;
-  (void) taken;
-  (void) allocation;
-  RMW_SET_ERROR_MSG("rmw_take_loaned_message not implemented for rmw_stub_cpp");
+  (void)subscription;
+  (void)loaned_message;
+  (void)taken;
+  (void)allocation;
+
+  RMW_SET_ERROR_MSG("rmw_take_loaned_message not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_ret_t rmw_take_loaned_message_with_info(
+rmw_ret_t rmw_take_loaned_message_with_info(
   const rmw_subscription_t * subscription,
   void ** loaned_message,
   bool * taken,
   rmw_message_info_t * message_info,
   rmw_subscription_allocation_t * allocation)
 {
-  (void) subscription;
-  (void) loaned_message;
-  (void) taken;
-  (void) message_info;
-  (void) allocation;
-  RMW_SET_ERROR_MSG("rmw_take_loaned_message_with_info not implemented for rmw_stub_cpp");
+  (void)subscription;
+  (void)loaned_message;
+  (void)taken;
+  (void)message_info;
+  (void)allocation;
+  RMW_SET_ERROR_MSG("rmw_take_loaned_message_with_info not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_ret_t rmw_return_loaned_message_from_subscription(
+rmw_ret_t rmw_return_loaned_message_from_subscription(
   const rmw_subscription_t * subscription,
   void * loaned_message)
 {
-  (void) subscription;
-  (void) loaned_message;
-  RMW_SET_ERROR_MSG(
-    "rmw_return_loaned_message_from_subscription not implemented for rmw_stub_cpp");
+  (void)subscription;
+  (void)loaned_message;
+
+  RMW_SET_ERROR_MSG("rmw_return_loaned_message_from_subscription not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
@@ -1089,10 +1063,12 @@ extern "C" rmw_ret_t rmw_return_loaned_message_from_subscription(
 ///////////                                                                   ///////////
 /////////////////////////////////////////////////////////////////////////////////////////
 
-extern "C" rmw_ret_t rmw_publisher_event_init(
+rmw_ret_t rmw_publisher_event_init(
   rmw_event_t * rmw_event, const rmw_publisher_t * publisher, rmw_event_type_t event_type)
 {
-  RET_NULL(publisher);
+  (void)rmw_event;
+  (void)publisher;
+  (void)event_type;
   // RET_WRONG_IMPLID(publisher);
   // return init_rmw_event(
   //   rmw_event,
@@ -1102,10 +1078,12 @@ extern "C" rmw_ret_t rmw_publisher_event_init(
   return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_ret_t rmw_subscription_event_init(
+rmw_ret_t rmw_subscription_event_init(
   rmw_event_t * rmw_event, const rmw_subscription_t * subscription, rmw_event_type_t event_type)
 {
-  RET_NULL(subscription);
+  (void)rmw_event;
+  (void)subscription;
+  (void)event_type;
   // RET_WRONG_IMPLID(subscription);
   // return init_rmw_event(
   //   rmw_event,
@@ -1115,18 +1093,15 @@ extern "C" rmw_ret_t rmw_subscription_event_init(
   return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_ret_t rmw_take_event(
+rmw_ret_t rmw_take_event(
   const rmw_event_t * event_handle, void * event_info,
   bool * taken)
 {
-  RET_NULL(event_handle);
-  // RET_WRONG_IMPLID(event_handle);
-  RET_NULL(taken);
-  RET_NULL(event_info);
+  (void)event_handle;
+  (void)event_info;
+  (void)taken;
 
-  RCUTILS_LOG_ERROR_NAMED(
-    "rmw_stub.cpp",
-    "rmw_take_event not implemented");
+  RMW_SET_ERROR_MSG("rmw_subscription_event_init not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
@@ -1136,7 +1111,7 @@ extern "C" rmw_ret_t rmw_take_event(
 ///////////                                                                   ///////////
 /////////////////////////////////////////////////////////////////////////////////////////
 
-extern "C" rmw_guard_condition_t * rmw_create_guard_condition(rmw_context_t * context)
+rmw_guard_condition_t * rmw_create_guard_condition(rmw_context_t * context)
 {
   (void)context;
 
@@ -1149,7 +1124,7 @@ extern "C" rmw_guard_condition_t * rmw_create_guard_condition(rmw_context_t * co
   return guard_condition_handle;
 }
 
-extern "C" rmw_ret_t rmw_destroy_guard_condition(rmw_guard_condition_t * rmw_guard_condition)
+rmw_ret_t rmw_destroy_guard_condition(rmw_guard_condition_t * rmw_guard_condition)
 {
   RET_NULL(rmw_guard_condition);
   auto stub_guard_condition = static_cast<StubGuardCondition *>(rmw_guard_condition->data);
@@ -1158,7 +1133,7 @@ extern "C" rmw_ret_t rmw_destroy_guard_condition(rmw_guard_condition_t * rmw_gua
   return RMW_RET_OK;
 }
 
-extern "C" rmw_ret_t rmw_guard_condition_set_listener_callback(
+rmw_ret_t rmw_guard_condition_set_listener_callback(
   const void * user_data,
   rmw_listener_cb_t callback,
   const void * guard_condition_handle,
@@ -1172,7 +1147,7 @@ extern "C" rmw_ret_t rmw_guard_condition_set_listener_callback(
   return RMW_RET_OK;
 }
 
-extern "C" rmw_ret_t rmw_trigger_guard_condition(
+rmw_ret_t rmw_trigger_guard_condition(
   const rmw_guard_condition_t * rmw_guard_condition)
 {
   RET_NULL(rmw_guard_condition);
@@ -1182,7 +1157,7 @@ extern "C" rmw_ret_t rmw_trigger_guard_condition(
   return RMW_RET_OK;
 }
 
-extern "C" rmw_wait_set_t * rmw_create_wait_set(rmw_context_t * context, size_t max_conditions)
+rmw_wait_set_t * rmw_create_wait_set(rmw_context_t * context, size_t max_conditions)
 {
   (void)max_conditions;
   RMW_CHECK_ARGUMENT_FOR_NULL(context, nullptr);
@@ -1193,7 +1168,7 @@ extern "C" rmw_wait_set_t * rmw_create_wait_set(rmw_context_t * context, size_t 
   return wait_set;
 }
 
-extern "C" rmw_ret_t rmw_destroy_wait_set(rmw_wait_set_t * wait_set)
+rmw_ret_t rmw_destroy_wait_set(rmw_wait_set_t * wait_set)
 {
   RET_NULL(wait_set);
 
@@ -1203,14 +1178,20 @@ extern "C" rmw_ret_t rmw_destroy_wait_set(rmw_wait_set_t * wait_set)
   return RMW_RET_OK;
 }
 
-extern "C" rmw_ret_t rmw_wait(
+rmw_ret_t rmw_wait(
   rmw_subscriptions_t * subs, rmw_guard_conditions_t * gcs,
   rmw_services_t * srvs, rmw_clients_t * cls, rmw_events_t * evs,
   rmw_wait_set_t * wait_set, const rmw_time_t * wait_timeout)
 {
-  RCUTILS_LOG_ERROR_NAMED(
-    "rmw_stub.cpp",
-    "rmw_wait not supported");
+  (void)subs;
+  (void)gcs;
+  (void)srvs;
+  (void)cls;
+  (void)evs;
+  (void)wait_set;
+  (void)wait_timeout;
+
+  RMW_SET_ERROR_MSG("rmw_wait not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
@@ -1220,268 +1201,112 @@ extern "C" rmw_ret_t rmw_wait(
 ///////////                                                                   ///////////
 /////////////////////////////////////////////////////////////////////////////////////////
 
-extern "C" rmw_ret_t rmw_take_response(
+rmw_ret_t rmw_take_response(
   const rmw_client_t * client,
   rmw_service_info_t * request_header, void * ros_response,
   bool * taken)
 {
-  RMW_CHECK_ARGUMENT_FOR_NULL(client, RMW_RET_INVALID_ARGUMENT);
-  RMW_CHECK_TYPE_IDENTIFIERS_MATCH(
-    client,
-    client->implementation_identifier, stub_identifier,
-    return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-  // auto info = static_cast<CddsClient *>(client->data);
-  // dds_time_t source_timestamp;
-  rmw_ret_t ret; // = rmw_take_response_request(
-  //   &info->client, request_header, ros_response, taken,
-  //   &source_timestamp, info->client.pub->pubiid);
+  (void)client;
+  (void)request_header;
+  (void)ros_response;
+  (void)taken;
 
-  RCUTILS_LOG_ERROR_NAMED(
-    "rmw_stub.cpp",
-    "rmw_take_response not supported");
+  RMW_SET_ERROR_MSG("rmw_take_response not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
 
-extern "C" rmw_ret_t rmw_take_request(
+rmw_ret_t rmw_take_request(
   const rmw_service_t * service,
   rmw_service_info_t * request_header, void * ros_request,
   bool * taken)
 {
-  RMW_CHECK_ARGUMENT_FOR_NULL(service, RMW_RET_INVALID_ARGUMENT);
-  RMW_CHECK_TYPE_IDENTIFIERS_MATCH(
-    service,
-    service->implementation_identifier, stub_identifier,
-    return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+  (void)service;
+  (void)request_header;
+  (void)ros_request;
+  (void)taken;
 
-  RCUTILS_LOG_ERROR_NAMED(
-    "rmw_stub.cpp",
-    "rmw_take_request not supported");
+  RMW_SET_ERROR_MSG("rmw_take_request not implemented");
   return RMW_RET_UNSUPPORTED;
-  // auto info = static_cast<CddsService *>(service->data);
-  // return rmw_take_response_request(
-  //   &info->service, request_header, ros_request, taken, nullptr,
-  //   false);
 }
 
-enum class client_present_t
-{
-  FAILURE,  // an error occurred when checking
-  MAYBE,    // reader not matched, writer still present
-  YES,      // reader matched
-  GONE      // neither reader nor writer
-};
-
-
-extern "C" rmw_ret_t rmw_send_response(
+rmw_ret_t rmw_send_response(
   const rmw_service_t * service,
   rmw_request_id_t * request_header, void * ros_response)
 {
-  RMW_CHECK_ARGUMENT_FOR_NULL(service, RMW_RET_INVALID_ARGUMENT);
-  RMW_CHECK_TYPE_IDENTIFIERS_MATCH(
-    service,
-    service->implementation_identifier, stub_identifier,
-    return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-  RMW_CHECK_ARGUMENT_FOR_NULL(request_header, RMW_RET_INVALID_ARGUMENT);
-  RMW_CHECK_ARGUMENT_FOR_NULL(ros_response, RMW_RET_INVALID_ARGUMENT);
-  // CddsService * info = static_cast<CddsService *>(service->data);
-  // cdds_request_header_t header;
-  // dds_instance_handle_t reqwrih;
-  // static_assert(
-  //   sizeof(request_header->writer_guid) == sizeof(header.guid) + sizeof(reqwrih),
-  //   "request header size assumptions not met");
-  // memcpy(
-  //   static_cast<void *>(&header.guid), static_cast<const void *>(request_header->writer_guid),
-  //   sizeof(header.guid));
-  // memcpy(
-  //   static_cast<void *>(&reqwrih),
-  //   static_cast<const void *>(request_header->writer_guid + sizeof(header.guid)), sizeof(reqwrih));
-  // header.seq = request_header->sequence_number;
-  // Block until the response reader has been matched by the response writer (this is a
-  // workaround: rmw_service_server_is_available should keep returning false until this
-  // is a given).
-  // TODO(eboasson): rmw_service_server_is_available should block the request instead (#191)
-  // client_present_t st;
-  // std::chrono::system_clock::time_point tnow = std::chrono::system_clock::now();
-  // std::chrono::system_clock::time_point tend = tnow + 100ms;
-  // while ((st =
-  //   check_for_response_reader(
-  //     info->service,
-  //     reqwrih)) == client_present_t::MAYBE && tnow < tend)
-  // {
-  //   dds_sleepfor(DDS_MSECS(10));
-  //   tnow = std::chrono::system_clock::now();
-  // }
-  // switch (st) {
-  //   case client_present_t::FAILURE:
-  //     break;
-  //   case client_present_t::MAYBE:
-  //     return RMW_RET_TIMEOUT;
-  //   case client_present_t::YES:
-  //     return rmw_send_response_request(&info->service, header, ros_response);
-  //   case client_present_t::GONE:
-  //     return RMW_RET_OK;
-  // }
-  // return RMW_RET_ERROR;
+  (void)service;
+  (void)request_header;
+  (void)ros_response;
 
-  RCUTILS_LOG_ERROR_NAMED(
-    "rmw_stub.cpp",
-    "rmw_send_response not supported");
+  RMW_SET_ERROR_MSG("rmw_send_response not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_ret_t rmw_send_request(
+rmw_ret_t rmw_send_request(
   const rmw_client_t * client, const void * ros_request,
   int64_t * sequence_id)
 {
-  static std::atomic_uint next_request_id;
-  RMW_CHECK_ARGUMENT_FOR_NULL(client, RMW_RET_INVALID_ARGUMENT);
-  RMW_CHECK_TYPE_IDENTIFIERS_MATCH(
-    client,
-    client->implementation_identifier, stub_identifier,
-    return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-  RMW_CHECK_ARGUMENT_FOR_NULL(ros_request, RMW_RET_INVALID_ARGUMENT);
-  RMW_CHECK_ARGUMENT_FOR_NULL(sequence_id, RMW_RET_INVALID_ARGUMENT);
+  (void)client;
+  (void)ros_request;
+  (void)sequence_id;
 
-//   auto info = static_cast<CddsClient *>(client->data);
-//   cdds_request_header_t header;
-//   header.guid = info->client.pub->pubiid;
-//   header.seq = *sequence_id = ++next_request_id;
-
-// #if REPORT_BLOCKED_REQUESTS
-//   {
-//     std::lock_guard<std::mutex> lock(info->lock);
-//     info->reqtime[header.seq] = dds_time();
-//   }
-// #endif
-
-//   return rmw_send_response_request(&info->client, header, ros_request);
-  RCUTILS_LOG_ERROR_NAMED(
-    "rmw_stub.cpp",
-    "rmw_send_request not supported");
+  RMW_SET_ERROR_MSG("rmw_send_response not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_client_t * rmw_create_client(
+rmw_client_t * rmw_create_client(
   const rmw_node_t * node,
   const rosidl_service_type_support_t * type_supports,
   const char * service_name,
   const rmw_qos_profile_t * qos_policies)
 {
-//   CddsClient * info = new CddsClient();
-// #if REPORT_BLOCKED_REQUESTS
-//   info->lastcheck = 0;
-// #endif
-//   if (
-//     rmw_init_cs(
-//       &info->client, node, type_supports, service_name, qos_policies, false) != RMW_RET_OK)
-//   {
-//     delete (info);
-//     return nullptr;
-//   }
+  (void)node;
+  (void)type_supports;
+  (void)qos_policies;
+
   rmw_client_t * rmw_client = rmw_client_allocate();
-  RET_NULL_X(rmw_client, goto fail_client);
   rmw_client->implementation_identifier = stub_identifier;
-  //rmw_client->data = info;
+  // StubClient * stub_client = new StubClient();
+  // rmw_client->data = stub_client;
   rmw_client->service_name = reinterpret_cast<const char *>(rmw_allocate(strlen(service_name) + 1));
-  RET_NULL_X(rmw_client->service_name, goto fail_service_name);
   memcpy(const_cast<char *>(rmw_client->service_name), service_name, strlen(service_name) + 1);
 
-  {
-    // Update graph
-    auto common = &node->context->impl->common;
-    // std::lock_guard<std::mutex> guard(common->node_update_mutex);
-    // static_cast<void>(common->graph_cache.associate_writer(
-    //   info->client.pub->gid, common->gid,
-    //   node->name, node->namespace_));
-    // rmw_dds_common::msg::ParticipantEntitiesInfo msg =
-    //   common->graph_cache.associate_reader(
-    //   info->client.sub->gid, common->gid, node->name,
-    //   node->namespace_);
-    // if (RMW_RET_OK != rmw_publish(
-    //     common->pub,
-    //     static_cast<void *>(&msg),
-    //     nullptr))
-    // {
-    //   static_cast<void>(destroy_client(node, rmw_client));
-    //   return nullptr;
-    // }
-  }
-
-  return rmw_client;
-fail_service_name:
-  rmw_client_free(rmw_client);
-fail_client:
-  // rmw_fini_cs(&info->client);
-  // delete info;
   return nullptr;
 }
 
-extern "C" rmw_ret_t rmw_destroy_client(rmw_node_t * node, rmw_client_t * client)
+rmw_ret_t rmw_destroy_client(rmw_node_t * node, rmw_client_t * client)
 {
-  // return destroy_client(node, client);
-  RCUTILS_LOG_ERROR_NAMED(
-    "rmw_stub.cpp",
-    "rmw_destroy_client not supported");
+  (void)node;
+  (void)client;
+
+  RMW_SET_ERROR_MSG("rmw_destroy_client not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_service_t * rmw_create_service(
+rmw_service_t * rmw_create_service(
   const rmw_node_t * node,
   const rosidl_service_type_support_t * type_supports,
   const char * service_name,
   const rmw_qos_profile_t * qos_policies)
 {
-  // CddsService * info = new CddsService();
-  // if (
-  //   rmw_init_cs(
-  //     &info->service, node, type_supports, service_name, qos_policies, true) != RMW_RET_OK)
-  // {
-  //   delete (info);
-  //   return nullptr;
-  // }
+  (void)node;
+  (void)type_supports;
+  (void)qos_policies;
   rmw_service_t * rmw_service = rmw_service_allocate();
-  RET_NULL_X(rmw_service, goto fail_service);
   rmw_service->implementation_identifier = stub_identifier;
-  //rmw_service->data = info;
-  rmw_service->service_name =
-    reinterpret_cast<const char *>(rmw_allocate(strlen(service_name) + 1));
-  RET_NULL_X(rmw_service->service_name, goto fail_service_name);
+  // StubService * stub_service = new StubService();
+  // rmw_service->data = stub_service;
+  rmw_service->service_name = reinterpret_cast<const char *>(rmw_allocate(strlen(service_name) + 1));
   //memcpy(const_cast<char *>(rmw_service->service_name), service_name, strlen(service_name) + 1);
-
-  {
-    // Update graph
-    //auto common = &node->context->impl->common;
-    // std::lock_guard<std::mutex> guard(common->node_update_mutex);
-    // static_cast<void>(common->graph_cache.associate_writer(
-    //   info->service.pub->gid, common->gid,
-    //   node->name, node->namespace_));
-    // rmw_dds_common::msg::ParticipantEntitiesInfo msg =
-    //   common->graph_cache.associate_reader(
-    //   info->service.sub->gid, common->gid, node->name,
-    //   node->namespace_);
-    // if (RMW_RET_OK != rmw_publish(
-    //     common->pub,
-    //     static_cast<void *>(&msg),
-    //     nullptr))
-    // {
-    //   static_cast<void>(destroy_service(node, rmw_service));
-    //   return nullptr;
-    // }
-  }
-
-  return rmw_service;
-fail_service_name:
-  rmw_service_free(rmw_service);
-fail_service:
-  //rmw_fini_cs(&info->service);
-  // delete info;
   return nullptr;
 }
 
-extern "C" rmw_ret_t rmw_destroy_service(rmw_node_t * node, rmw_service_t * service)
+rmw_ret_t rmw_destroy_service(rmw_node_t * node, rmw_service_t * service)
 {
-  // return destroy_service(node, service);
+  (void)node;
+  (void)service;
+
+  RMW_SET_ERROR_MSG("rmw_destroy_service not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
@@ -1491,7 +1316,7 @@ extern "C" rmw_ret_t rmw_destroy_service(rmw_node_t * node, rmw_service_t * serv
 ///////////                                                                   ///////////
 /////////////////////////////////////////////////////////////////////////////////////////
 
-extern "C" rmw_ret_t rmw_get_node_names(
+rmw_ret_t rmw_get_node_names(
   const rmw_node_t * node,
   rcutils_string_array_t * node_names,
   rcutils_string_array_t * node_namespaces)
@@ -1520,148 +1345,62 @@ extern "C" rmw_ret_t rmw_get_node_names(
     &allocator);
 }
 
-extern "C" rmw_ret_t rmw_get_node_names_with_enclaves(
+rmw_ret_t rmw_get_node_names_with_enclaves(
   const rmw_node_t * node,
   rcutils_string_array_t * node_names,
   rcutils_string_array_t * node_namespaces,
   rcutils_string_array_t * enclaves)
 {
-  RMW_CHECK_ARGUMENT_FOR_NULL(node, RMW_RET_INVALID_ARGUMENT);
-  RMW_CHECK_TYPE_IDENTIFIERS_MATCH(
-    node,
-    node->implementation_identifier,
-    stub_identifier,
-    return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-  if (RMW_RET_OK != rmw_check_zero_rmw_string_array(node_names)) {
-    return RMW_RET_INVALID_ARGUMENT;
-  }
-  if (RMW_RET_OK != rmw_check_zero_rmw_string_array(node_namespaces)) {
-    return RMW_RET_INVALID_ARGUMENT;
-  }
-  if (RMW_RET_OK != rmw_check_zero_rmw_string_array(enclaves)) {
-    return RMW_RET_INVALID_ARGUMENT;
-  }
+  (void)node;
+  (void)node_names;
+  (void)node_namespaces;
+  (void)enclaves;
 
-  // auto common_context = &node->context->impl->common;
-  // rcutils_allocator_t allocator = rcutils_get_default_allocator();
-  // return common_context->graph_cache.get_node_names(
-  //   node_names,
-  //   node_namespaces,
-  //   enclaves,
-  //   &allocator);
-
-  RCUTILS_LOG_ERROR_NAMED(
-    "rmw_stub.cpp",
-    "rmw_get_node_names_with_enclaves");
+  RMW_SET_ERROR_MSG("rmw_get_node_names_with_enclaves not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_ret_t rmw_get_topic_names_and_types(
+rmw_ret_t rmw_get_topic_names_and_types(
   const rmw_node_t * node,
   rcutils_allocator_t * allocator,
   bool no_demangle, rmw_names_and_types_t * tptyp)
 {
-  RMW_CHECK_ARGUMENT_FOR_NULL(node, RMW_RET_INVALID_ARGUMENT);
-  RMW_CHECK_TYPE_IDENTIFIERS_MATCH(
-    node,
-    node->implementation_identifier,
-    stub_identifier,
-    return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-  RCUTILS_CHECK_ALLOCATOR_WITH_MSG(
-    allocator, "allocator argument is invalid", return RMW_RET_INVALID_ARGUMENT);
-  if (RMW_RET_OK != rmw_names_and_types_check_zero(tptyp)) {
-    return RMW_RET_INVALID_ARGUMENT;
-  }
-  RCUTILS_LOG_ERROR_NAMED(
-    "rmw_stub.cpp",
-    "rmw_get_topic_names_and_types unsupported");
+  (void)node;
+  (void)allocator;
+  (void)no_demangle;
+  (void)tptyp;
+
+  RMW_SET_ERROR_MSG("rmw_get_topic_names_and_types not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_ret_t rmw_get_service_names_and_types(
+rmw_ret_t rmw_get_service_names_and_types(
   const rmw_node_t * node,
   rcutils_allocator_t * allocator,
   rmw_names_and_types_t * sntyp)
 {
-  RMW_CHECK_ARGUMENT_FOR_NULL(node, RMW_RET_INVALID_ARGUMENT);
-  RMW_CHECK_TYPE_IDENTIFIERS_MATCH(
-    node,
-    node->implementation_identifier,
-    stub_identifier,
-    return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-  RCUTILS_CHECK_ALLOCATOR_WITH_MSG(
-    allocator, "allocator argument is invalid", return RMW_RET_INVALID_ARGUMENT);
-  if (RMW_RET_OK != rmw_names_and_types_check_zero(sntyp)) {
-    return RMW_RET_INVALID_ARGUMENT;
-  }
+  (void)node;
+  (void)allocator;
+  (void)sntyp;
 
-  //auto common_context = &node->context->impl->common;
-  // return common_context->graph_cache.get_names_and_types(
-  //   _demangle_service_from_topic,
-  //   _demangle_service_type_only,
-  //   allocator,
-  //   sntyp);
-  RCUTILS_LOG_ERROR_NAMED(
-    "rmw_stub.cpp",
-    "rmw_get_service_names_and_types unsupported");
+  RMW_SET_ERROR_MSG("rmw_get_service_names_and_types not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_ret_t rmw_service_server_is_available(
+rmw_ret_t rmw_service_server_is_available(
   const rmw_node_t * node,
   const rmw_client_t * client,
   bool * is_available)
 {
-  RET_NULL(node);
-  // RET_WRONG_IMPLID(node);
-  RET_NULL(client);
-  // RET_WRONG_IMPLID(client);
-  RET_NULL(is_available);
-  //*is_available = false;
+  (void)node;
+  (void)client;
+  (void)is_available;
 
-  // auto info = static_cast<CddsClient *>(client->data);
-  // auto common_context = &node->context->impl->common;
-
-  // std::string sub_topic_name, pub_topic_name;
-  // if (get_topic_name(info->client.pub->enth, pub_topic_name) < 0 ||
-  //   get_topic_name(info->client.sub->enth, sub_topic_name) < 0)
-  // {
-  //   RMW_SET_ERROR_MSG("rmw_service_server_is_available: failed to get topic names");
-  //   return RMW_RET_ERROR;
-  // }
-
-  // size_t number_of_request_subscribers = 0;
-  // rmw_ret_t ret =
-  //   common_context->graph_cache.get_reader_count(pub_topic_name, &number_of_request_subscribers);
-  // if (ret != RMW_RET_OK || 0 == number_of_request_subscribers) {
-  //   return ret;
-  // }
-  // size_t number_of_response_publishers = 0;
-  // ret =
-  //   common_context->graph_cache.get_writer_count(sub_topic_name, &number_of_response_publishers);
-  // if (ret != RMW_RET_OK || 0 == number_of_response_publishers) {
-  //   return ret;
-  // }
-  // return check_for_service_reader_writer(info->client, is_available);
-  // return RMW_RET_ERROR;
-  RCUTILS_LOG_ERROR_NAMED(
-    "rmw_stub.cpp",
-    "rmw_service_server_is_available");
+  RMW_SET_ERROR_MSG("rmw_service_server_is_available not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
-static std::string mangle_topic_name(
-  const char * prefix, const char * topic_name, const char * suffix,
-  bool avoid_ros_namespace_conventions)
-{
-  if (avoid_ros_namespace_conventions) {
-    return std::string(topic_name) + std::string(suffix);
-  } else {
-    return std::string(prefix) + std::string(topic_name) + std::string(suffix);
-  }
-}
-
-extern "C" rmw_ret_t rmw_count_publishers(
+rmw_ret_t rmw_count_publishers(
   const rmw_node_t * node, const char * topic_name,
   size_t * count)
 {
@@ -1689,7 +1428,7 @@ extern "C" rmw_ret_t rmw_count_publishers(
   return common_context->graph_cache.get_writer_count(mangled_topic_name, count);
 }
 
-extern "C" rmw_ret_t rmw_count_subscribers(
+rmw_ret_t rmw_count_subscribers(
   const rmw_node_t * node, const char * topic_name,
   size_t * count)
 {
@@ -1719,9 +1458,7 @@ extern "C" rmw_ret_t rmw_count_subscribers(
   return common_context->graph_cache.get_reader_count(mangled_topic_name, count);
 }
 
-
-
-extern "C" rmw_ret_t rmw_get_subscriber_names_and_types_by_node(
+rmw_ret_t rmw_get_subscriber_names_and_types_by_node(
   const rmw_node_t * node,
   rcutils_allocator_t * allocator,
   const char * node_name,
@@ -1729,17 +1466,18 @@ extern "C" rmw_ret_t rmw_get_subscriber_names_and_types_by_node(
   bool no_demangle,
   rmw_names_and_types_t * tptyp)
 {
-  // return get_topic_names_and_types_by_node(
-  //   node, allocator, node_name, node_namespace,
-  //   _demangle_ros_topic_from_topic, _demangle_if_ros_type,
-  //   no_demangle, get_reader_names_and_types_by_node, tptyp);
-    RCUTILS_LOG_ERROR_NAMED(
-    "rmw_stub.cpp",
-    "rmw_get_subscriber_names_and_types_by_node");
+  (void)node;
+  (void)allocator;
+  (void)node_name;
+  (void)node_namespace;
+  (void)no_demangle;
+  (void)tptyp;
+
+  RMW_SET_ERROR_MSG("rmw_get_subscriber_names_and_types_by_node not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_ret_t rmw_get_publisher_names_and_types_by_node(
+rmw_ret_t rmw_get_publisher_names_and_types_by_node(
   const rmw_node_t * node,
   rcutils_allocator_t * allocator,
   const char * node_name,
@@ -1747,72 +1485,62 @@ extern "C" rmw_ret_t rmw_get_publisher_names_and_types_by_node(
   bool no_demangle,
   rmw_names_and_types_t * tptyp)
 {
-  // return get_topic_names_and_types_by_node(
-  //   node, allocator, node_name, node_namespace,
-  //   _demangle_ros_topic_from_topic, _demangle_if_ros_type,
-  //   no_demangle, get_writer_names_and_types_by_node, tptyp);
+  (void)node;
+  (void)allocator;
+  (void)node_name;
+  (void)node_namespace;
+  (void)no_demangle;
+  (void)tptyp;
 
-  RCUTILS_LOG_ERROR_NAMED(
-    "rmw_stub.cpp",
-    "rmw_get_publisher_names_and_types_by_node");
+  RMW_SET_ERROR_MSG("rmw_get_publisher_names_and_types_by_node not implemented");
   return RMW_RET_UNSUPPORTED;
-
 }
 
-extern "C" rmw_ret_t rmw_get_service_names_and_types_by_node(
+rmw_ret_t rmw_get_service_names_and_types_by_node(
   const rmw_node_t * node,
   rcutils_allocator_t * allocator,
   const char * node_name,
   const char * node_namespace,
   rmw_names_and_types_t * sntyp)
 {
-  // return get_topic_names_and_types_by_node(
-  //   node,
-  //   allocator,
-  //   node_name,
-  //   node_namespace,
-  //   _demangle_service_request_from_topic,
-  //   _demangle_service_type_only,
-  //   false,
-  //   get_reader_names_and_types_by_node,
-  //   sntyp);
-  RCUTILS_LOG_ERROR_NAMED(
-    "rmw_stub.cpp",
-    "rmw_get_service_names_and_types_by_node");
+  (void)node;
+  (void)allocator;
+  (void)node_name;
+  (void)node_namespace;
+  (void)sntyp;
+
+  RMW_SET_ERROR_MSG("rmw_get_service_names_and_types_by_node not implemented");
   return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_ret_t rmw_get_client_names_and_types_by_node(
+rmw_ret_t rmw_get_client_names_and_types_by_node(
   const rmw_node_t * node,
   rcutils_allocator_t * allocator,
   const char * node_name,
   const char * node_namespace,
   rmw_names_and_types_t * sntyp)
 {
-  // return get_topic_names_and_types_by_node(
-  //   node,
-  //   allocator,
-  //   node_name,
-  //   node_namespace,
-  //   _demangle_service_reply_from_topic,
-  //   _demangle_service_type_only,
-  //   false,
-  //   get_reader_names_and_types_by_node,
-  //   sntyp);
-        RCUTILS_LOG_ERROR_NAMED(
-    "rmw_stub.cpp",
-    "rmw_get_client_names_and_types_by_node");
-    return RMW_RET_UNSUPPORTED;
+  (void)node;
+  (void)allocator;
+  (void)node_name;
+  (void)node_namespace;
+  (void)sntyp;
+
+  RMW_SET_ERROR_MSG("rmw_get_client_names_and_types_by_node not implemented");
+  return RMW_RET_UNSUPPORTED;
 }
 
-extern "C" rmw_ret_t rmw_get_publishers_info_by_topic(
+rmw_ret_t rmw_get_publishers_info_by_topic(
   const rmw_node_t * node,
   rcutils_allocator_t * allocator,
   const char * topic_name,
   bool no_mangle,
   rmw_topic_endpoint_info_array_t * publishers_info)
 {
+  (void)no_mangle;
+
   RMW_CHECK_ARGUMENT_FOR_NULL(node, RMW_RET_INVALID_ARGUMENT);
+  RMW_CHECK_ARGUMENT_FOR_NULL(topic_name, RMW_RET_INVALID_ARGUMENT);
   RMW_CHECK_TYPE_IDENTIFIERS_MATCH(
     node,
     node->implementation_identifier,
@@ -1820,37 +1548,23 @@ extern "C" rmw_ret_t rmw_get_publishers_info_by_topic(
     return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
   RCUTILS_CHECK_ALLOCATOR_WITH_MSG(
     allocator, "allocator argument is invalid", return RMW_RET_INVALID_ARGUMENT);
-  RMW_CHECK_ARGUMENT_FOR_NULL(topic_name, RMW_RET_INVALID_ARGUMENT);
   if (RMW_RET_OK != rmw_topic_endpoint_info_array_check_zero(publishers_info)) {
     return RMW_RET_INVALID_ARGUMENT;
   }
-
-  // auto common_context = &node->context->impl->common;
-  // std::string mangled_topic_name = topic_name;
-  // DemangleFunction demangle_type = _identity_demangle;
-  // if (!no_mangle) {
-  //   mangled_topic_name = mangle_topic_name(ROS_TOPIC_PREFIX, topic_name, "", false);
-  //   demangle_type = _demangle_if_ros_type;
-  // }
-  // return common_context->graph_cache.get_writers_info_by_topic(
-  //   mangled_topic_name,
-  //   demangle_type,
-  //   allocator,
-  //   publishers_info);
-      RCUTILS_LOG_ERROR_NAMED(
-    "rmw_stub.cpp",
-    "rmw_get_publishers_info_by_topic");
-  return RMW_RET_UNSUPPORTED;
+  return RMW_RET_OK;
 }
 
-extern "C" rmw_ret_t rmw_get_subscriptions_info_by_topic(
+rmw_ret_t rmw_get_subscriptions_info_by_topic(
   const rmw_node_t * node,
   rcutils_allocator_t * allocator,
   const char * topic_name,
   bool no_mangle,
   rmw_topic_endpoint_info_array_t * subscriptions_info)
 {
+  (void)no_mangle;
+
   RMW_CHECK_ARGUMENT_FOR_NULL(node, RMW_RET_INVALID_ARGUMENT);
+  RMW_CHECK_ARGUMENT_FOR_NULL(topic_name, RMW_RET_INVALID_ARGUMENT);
   RMW_CHECK_TYPE_IDENTIFIERS_MATCH(
     node,
     node->implementation_identifier,
@@ -1858,25 +1572,10 @@ extern "C" rmw_ret_t rmw_get_subscriptions_info_by_topic(
     return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
   RCUTILS_CHECK_ALLOCATOR_WITH_MSG(
     allocator, "allocator argument is invalid", return RMW_RET_INVALID_ARGUMENT);
-  RMW_CHECK_ARGUMENT_FOR_NULL(topic_name, RMW_RET_INVALID_ARGUMENT);
   if (RMW_RET_OK != rmw_topic_endpoint_info_array_check_zero(subscriptions_info)) {
     return RMW_RET_INVALID_ARGUMENT;
   }
-
-  // auto common_context = &node->context->impl->common;
-  // std::string mangled_topic_name = topic_name;
-  // DemangleFunction demangle_type = _identity_demangle;
-  // if (!no_mangle) {
-  //   mangled_topic_name = mangle_topic_name(ROS_TOPIC_PREFIX, topic_name, "", false);
-  //   demangle_type = _demangle_if_ros_type;
-  // }
-  // return common_context->graph_cache.get_readers_info_by_topic(
-  //   mangled_topic_name,
-  //   demangle_type,
-  //   allocator,
-  //   subscriptions_info);
-    RCUTILS_LOG_ERROR_NAMED(
-    "rmw_stub.cpp",
-    "rmw_get_subscriptions_info_by_topic");
-  return RMW_RET_UNSUPPORTED;
+  return RMW_RET_OK;
 }
+
+}  // extern "C"

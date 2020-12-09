@@ -21,7 +21,7 @@ public:
     {
       listener_callback_(user_data_, { waitable_handle_, WAITABLE_EVENT });
     } else {
-      triggered_ = true;
+      has_triggered_ = true;
       unread_count_++;
     }
   }
@@ -31,9 +31,9 @@ public:
   {
     std::unique_lock<std::mutex> lock_mutex(listener_callback_mutex_);
 
-    bool has_triggered = triggered_;
+    bool has_triggered = has_triggered_;
 
-    triggered_ = !triggered_;
+    has_triggered_ = !has_triggered_;
 
     return has_triggered;
   }
@@ -74,8 +74,8 @@ public:
   }
 
 private:
-  // Wait set
-  bool triggered_{false};
+  bool has_triggered_{false};
+
   // Events executor
   rmw_listener_cb_t listener_callback_{nullptr};
   const void * waitable_handle_{nullptr};

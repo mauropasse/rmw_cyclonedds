@@ -5,6 +5,7 @@ struct rmw_context_impl_t
 {
   /// Pointer to `rmw_dds_common::Context`.
   void * common;
+
   /// Pointer to `rmw_fastrtps_shared_cpp::CustomParticipantInfo`.
   void * participant_info;
 
@@ -20,7 +21,6 @@ struct rmw_context_impl_t
   rmw_context_impl_t()
   : common()
   {
-    /* destructor relies on these being initialized properly */
   }
 
   // Initializes the participant, if it wasn't done already.
@@ -41,10 +41,6 @@ struct rmw_context_impl_t
         "to avoid leaking.\n");
     }
   }
-
-private:
-  void
-  clean_up();
 };
 
 #endif  // STUB_CONTEXT_IMPLEMENTATION_HPP_
