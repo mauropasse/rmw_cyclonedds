@@ -4631,3 +4631,99 @@ extern "C" rmw_ret_t rmw_get_subscriptions_info_by_topic(
     allocator,
     subscriptions_info);
 }
+
+extern "C" rmw_ret_t rmw_subscription_set_listener_callback(
+  rmw_subscription_t * rmw_subscription,
+  rmw_listener_cb_t callback,
+  const void * user_data,
+  const void * subscription_handle)
+{
+  (void)rmw_subscription;
+  (void)callback;
+  (void)user_data;
+  (void)subscription_handle;
+  // auto subscription = static_cast<CddsSubscription *>(rmw_subscription->data);
+  // subscription->setCallback(user_data, callback, subscription_handle);
+  RCUTILS_LOG_ERROR_NAMED(
+    "rmw_node.cpp",
+    "rmw_subscription_set_listener_callback: not supported (yet)");
+  return RMW_RET_UNSUPPORTED;
+}
+
+extern "C" rmw_ret_t rmw_service_set_listener_callback(
+  rmw_service_t * rmw_service,
+  rmw_listener_cb_t callback,
+  const void * user_data,
+  const void * service_handle)
+{
+  (void)rmw_service;
+  (void)callback;
+  (void)user_data;
+  (void)service_handle;
+  // auto service = static_cast<CddsService *>(rmw_service->data);
+  // service->setCallback(user_data, callback, service_handle);
+  RCUTILS_LOG_ERROR_NAMED(
+    "rmw_node.cpp",
+    "rmw_service_set_listener_callback: not supported (yet)");
+  return RMW_RET_UNSUPPORTED;
+}
+
+extern "C" rmw_ret_t rmw_client_set_listener_callback(
+  rmw_client_t * rmw_client,
+  rmw_listener_cb_t callback,
+  const void * user_data,
+  const void * client_handle)
+{
+  (void)rmw_client;
+  (void)callback;
+  (void)user_data;
+  (void)client_handle;
+  // auto client = static_cast<CddsClient *>(rmw_client->data);
+  // client->setCallback(user_data, callback, client_handle);
+  RCUTILS_LOG_ERROR_NAMED(
+    "rmw_node.cpp",
+    "rmw_client_set_listener_callback: not supported (yet)");
+  return RMW_RET_UNSUPPORTED;
+}
+
+extern "C" rmw_ret_t rmw_guard_condition_set_listener_callback(
+  rmw_guard_condition_t * rmw_guard_condition,
+  rmw_listener_cb_t callback,
+  const void * user_data,
+  const void * guard_condition_handle,
+  bool use_previous_events)
+{
+  (void)user_data;
+  (void)callback;
+  (void)guard_condition_handle;
+  (void)rmw_guard_condition;
+  (void)use_previous_events;
+  // auto guard_condition = static_cast<CddsGuardCondition *>(rmw_guard_condition->data);
+  // guard_condition->setCallback(user_data, callback,
+  //                              guard_condition_handle, use_previous_events);
+  RCUTILS_LOG_ERROR_NAMED(
+    "rmw_node.cpp",
+    "rmw_guard_condition_set_listener_callback: not supported (yet)");
+  return RMW_RET_UNSUPPORTED;
+}
+
+extern "C" rmw_ret_t rmw_event_set_events_listener_callback(
+  const void * user_data,
+  rmw_listener_cb_t callback,
+  const void * waitable_handle,
+  rmw_event_t * rmw_event,
+  bool use_previous_events)
+{
+  (void)user_data;
+  (void)callback;
+  (void)waitable_handle;
+  (void)rmw_event;
+  (void)use_previous_events;
+  // auto event = static_cast<CddsEvent *>(rmw_event->data);
+  // event->setCallback(user_data, callback,
+  //                              waitable_handle, use_previous_events);
+  RCUTILS_LOG_ERROR_NAMED(
+    "rmw_node.cpp",
+    "rmw_event_set_events_listener_callback: not supported (yet)");
+  return RMW_RET_UNSUPPORTED;
+}
